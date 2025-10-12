@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import List, Dict, Optional
 from conversation_manager import Message
 from dotenv import load_dotenv
+from settings_manager import get_settings
 
 # Load environment variables from .env file
 load_dotenv()
@@ -33,14 +34,16 @@ class AgentRunner:
         """
         self.config = config
         self.timeout = 120  # 2 minutes default timeout
+        self.settings = get_settings()
 
-        # Initialize Anthropic client
-        api_key = os.environ.get('ANTHROPIC_API_KEY')
+        # Initialize Anthropic client using settings
+        api_key = self.settings.get_anthropic_api_key()
         if not api_key:
             raise ValueError(
-                "ANTHROPIC_API_KEY environment variable not set.\n"
+                "ANTHROPIC_API_KEY not configured.\n"
                 "Get your API key from: https://console.anthropic.com/\n"
-                "Then set it: export ANTHROPIC_API_KEY='sk-ant-...'"
+                "Configure it via Settings menu or set environment variable:\n"
+                "export ANTHROPIC_API_KEY='sk-ant-...'"
             )
 
         self.client = anthropic.Anthropic(api_key=api_key)
@@ -92,9 +95,9 @@ class AgentRunner:
             if not system_prompt:
                 raise ValueError(f"No system prompt found for agent: {agent_id}")
 
-            # Get model configuration
+            # Get model configuration from settings first, then fall back to config
+            model = self.settings.get_agent_model(agent_id)
             agent_config = self.config.get('agents', {}).get(agent_id, {})
-            model = agent_config.get('model', 'claude-sonnet-4-5-20250929')
             max_tokens = agent_config.get('max_tokens', 2048)
             temperature = agent_config.get('temperature', 1.0)
 
@@ -204,8 +207,9 @@ class AgentRunner:
 
             # Try a simple API call to validate
             system_prompt = self._load_agent_prompt(agent_id)
+            model = self.settings.get_agent_model(agent_id)
             test_response = self.client.messages.create(
-                model="claude-sonnet-4-5-20250929",
+                model=model,
                 max_tokens=10,
                 system=system_prompt,
                 messages=[{"role": "user", "content": "test"}]
@@ -250,9 +254,9 @@ class AgentRunner:
             if not system_prompt:
                 raise ValueError(f"No system prompt found for agent: {agent_id}")
 
-            # Get model configuration
+            # Get model configuration from settings first, then fall back to config
+            model = self.settings.get_agent_model(agent_id)
             agent_config = self.config.get('agents', {}).get(agent_id, {})
-            model = agent_config.get('model', 'claude-sonnet-4-5-20250929')
             max_tokens = agent_config.get('max_tokens', 2048)
             temperature = agent_config.get('temperature', 1.0)
 
@@ -269,6 +273,7 @@ class AgentRunner:
             response_text = ""
             input_tokens = 0
             output_tokens = 0
+            thinking_tokens = 0  # Track thinking tokens separately
 
             with self.client.messages.stream(
                 model=model,
@@ -306,13 +311,23 @@ class AgentRunner:
                     input_tokens = final_message.usage.input_tokens
                     output_tokens = final_message.usage.output_tokens
 
-            # Yield final token info
+            # Estimate thinking tokens from thinking text if not provided by API
+            # Rough estimate: 1 token ≈ 4 characters
+            if thinking_text and thinking_tokens == 0:
+                thinking_tokens = len(thinking_text) // 4
+
+            # Yield final token info with enhanced metadata
             token_info = {
                 'input_tokens': input_tokens,
                 'output_tokens': output_tokens,
+                'thinking_tokens': thinking_tokens,
                 'total_tokens': input_tokens + output_tokens,
                 'thinking_text': thinking_text,
-                'response_text': response_text
+                'response_text': response_text,
+                # Add model configuration
+                'model_name': model,
+                'temperature': temperature,
+                'max_tokens': max_tokens
             }
             yield ('complete', '', token_info)
 
@@ -347,3 +362,141 @@ class AgentRunner:
             'history_length': history_length,
             'has_system_prompt': agent_id in self.agent_prompts
         }
+
+
+class Agent:
+    """
+    Wrapper class for an individual agent that provides a simple interface
+    for the coordinator to interact with.
+    """
+
+    def __init__(self, agent_id: str, agent_name: str, runner: AgentRunner):
+        """
+        Initialize an agent wrapper.
+
+        Args:
+            agent_id: The agent identifier (e.g., 'agent_a', 'agent_b')
+            agent_name: The display name for the agent
+            runner: The AgentRunner instance to use for API calls
+        """
+        self.agent_id = agent_id
+        self.agent_name = agent_name
+        self.runner = runner
+
+    def send_message(self, context_messages: List[Message], message: str) -> Optional[str]:
+        """
+        Send a message to the agent and get a response.
+
+        Args:
+            context_messages: Previous conversation context
+            message: The message to send
+
+        Returns:
+            The agent's response text, or None if failed
+        """
+        return self.runner.send_message_to_agent(self.agent_id, context_messages, message)
+
+    def send_message_streaming(
+        self,
+        context_messages: List[Message],
+        message: str,
+        enable_thinking: bool = True,
+        thinking_budget: int = 5000
+    ):
+        """
+        Send a message to the agent with streaming response.
+
+        Args:
+            context_messages: Previous conversation context
+            message: The message to send
+            enable_thinking: Whether to show extended thinking
+            thinking_budget: Maximum tokens for thinking
+
+        Yields:
+            Tuples of (content_type, chunk, token_info)
+        """
+        return self.runner.send_message_streaming(
+            self.agent_id,
+            context_messages,
+            message,
+            enable_thinking,
+            thinking_budget
+        )
+
+
+class AgentPool:
+    """
+    Pool of agents for managing multiple agent instances.
+    This is a higher-level interface for creating and managing agents.
+    """
+
+    def __init__(self):
+        """Initialize the agent pool."""
+        # Load config from config.yaml
+        config_path = Path('config.yaml')
+        if config_path.exists():
+            import yaml
+            with open(config_path, 'r') as f:
+                self.config = yaml.safe_load(f)
+        else:
+            # Default minimal config
+            self.config = {
+                'agents': {},
+                'logging': {'debug': False}
+            }
+
+        # Create a single AgentRunner instance
+        self.runner = AgentRunner(self.config)
+
+        # Track created agents
+        self.agents: Dict[str, Agent] = {}
+
+    def create_agent(self, agent_id: str, agent_name: str) -> Agent:
+        """
+        Create a new agent with the given ID and name.
+
+        Args:
+            agent_id: The agent identifier (e.g., 'agent_a', 'agent_b')
+            agent_name: The display name for the agent
+
+        Returns:
+            An Agent instance
+        """
+        agent = Agent(agent_id, agent_name, self.runner)
+        self.agents[agent_id] = agent
+        return agent
+
+    def validate_all_agents(self) -> bool:
+        """
+        Validate that all created agents are available and can respond.
+
+        Returns:
+            True if all agents are valid, False otherwise
+        """
+        if not self.agents:
+            print("⚠️  No agents have been created yet")
+            return False
+
+        all_valid = True
+        for agent_id, agent in self.agents.items():
+            try:
+                # Check if agent file exists
+                agent_file = Path('.claude') / 'agents' / f'{agent_id}.md'
+                if not agent_file.exists():
+                    print(f"❌ Agent file not found: {agent_file}")
+                    all_valid = False
+                    continue
+
+                # Check API key
+                if not os.environ.get('ANTHROPIC_API_KEY'):
+                    print("❌ ANTHROPIC_API_KEY environment variable not set")
+                    all_valid = False
+                    continue
+
+                print(f"✅ Agent {agent.agent_name} (@{agent_id}) is ready")
+
+            except Exception as e:
+                print(f"❌ Agent {agent.agent_name} validation failed: {str(e)}")
+                all_valid = False
+
+        return all_valid

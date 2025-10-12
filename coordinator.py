@@ -25,6 +25,7 @@ from typing import Dict, List, Optional
 from conversation_manager import ConversationHistory, Message, MessageRole
 from agent_runner import AgentRunner
 from display_formatter import DisplayFormatter
+from cost_calculator import CostCalculator
 
 
 class ConversationCoordinator:
@@ -116,6 +117,7 @@ class ConversationCoordinator:
         # Start the conversation loop
         current_agent_id = agent_a_id
         current_message = prompt
+        total_cost = 0.0
 
         try:
             for turn in range(self.max_turns):
@@ -199,10 +201,31 @@ class ConversationCoordinator:
                 # Add to history
                 exchange = self.history.add_exchange(agent_name, response_text, context)
 
-                # Show token usage
+                # Extract token details
+                input_tokens = token_info.get('input_tokens', 0)
+                output_tokens = token_info.get('output_tokens', 0)
+                turn_tokens = input_tokens + output_tokens
                 total_tokens = self.history.get_total_tokens()
-                turn_tokens = token_info.get('output_tokens', exchange.message.tokens_estimate)
-                self.display.print_token_usage(turn_tokens, total_tokens)
+
+                # Get model name for cost calculation
+                model_name = self.agents_config[current_agent_id].get('model')
+
+                # Calculate cost for this turn
+                turn_cost = 0.0
+                if model_name and input_tokens > 0:
+                    cost_info = CostCalculator.calculate_cost(model_name, input_tokens, output_tokens)
+                    turn_cost = cost_info['total_cost']
+                    total_cost += turn_cost
+
+                # Display token and cost stats
+                DisplayFormatter.print_token_stats(
+                    turn_tokens, total_tokens,
+                    model_name=model_name,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    turn_cost=turn_cost,
+                    total_cost=total_cost
+                )
 
                 # Use response for next turn
                 response = response_text
@@ -225,8 +248,18 @@ class ConversationCoordinator:
                 self.history.get_total_tokens()
             )
 
+            # Show cost summary
+            if total_cost > 0:
+                cost_str = CostCalculator.format_cost(total_cost)
+                print(f"Total cost this session: {cost_str}")
+
         except KeyboardInterrupt:
             self.display.print_warning("\nConversation interrupted by user")
+
+            # Show cost summary even on interrupt
+            if total_cost > 0:
+                cost_str = CostCalculator.format_cost(total_cost)
+                print(f"💵 Total cost: {cost_str}")
 
         except Exception as e:
             self.display.print_error(f"Unexpected error: {e}")

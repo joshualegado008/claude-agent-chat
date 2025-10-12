@@ -1,0 +1,10 @@
+{
+  "anthropic_api_key": "",
+  "openai_api_key": "",
+  "agent_models": {
+    "agent_a": "claude-sonnet-4-5-20250929",
+    "agent_b": "claude-sonnet-4-5-20250929"
+  },
+  "embedding_model": "text-embedding-3-small",
+  "use_env_keys": true
+}

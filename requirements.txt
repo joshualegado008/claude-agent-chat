@@ -1,4 +1,15 @@
 anthropic>=0.39.0
-pyyaml>=6.0.1
+pyyaml>=6.0
 colorama>=0.4.6
 python-dotenv>=1.0.0
+
+# Database dependencies
+psycopg2-binary>=2.9.9
+qdrant-client>=1.7.0
+
+# AI services
+openai>=1.12.0  # For GPT-4o-mini metadata extraction and embeddings
+
+# Optional: For alternative embedding models
+# cohere>=4.0.0  # For Cohere embeddings
+# sentence-transformers>=2.2.0  # For local embeddings

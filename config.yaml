@@ -6,11 +6,13 @@ agents:
     name: "Nova"
     id: "agent_a"
     color: "cyan"
+    model: "claude-sonnet-4-5-20250929"
     max_tokens: 8000  # Must be greater than thinking_budget (5000)
   agent_b:
     name: "Atlas"
     id: "agent_b"
     color: "yellow"
+    model: "claude-sonnet-4-5-20250929"
     max_tokens: 8000  # Must be greater than thinking_budget (5000)
 
 # Conversation settings
@@ -50,6 +52,12 @@ display:
 
   # Show token usage estimates
   show_tokens: true
+
+  # Stats display mode: "simple", "detailed", or "geeky"
+  # - simple: Basic token count and cost
+  # - detailed: Adds model info and session stats
+  # - geeky: Full technical breakdown with context window analysis
+  stats_mode: "geeky"
 
   # Show context summary before each turn
   show_context_summary: false

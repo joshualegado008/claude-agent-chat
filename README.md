@@ -37,13 +37,38 @@ This project enables two Claude Code agents to have natural, extended conversati
 
 ## Features
 
-### 🧠 Extended Thinking & ⚡ Real-Time Streaming (NEW!)
+### 🧠 Extended Thinking & ⚡ Real-Time Streaming
 - **Extended Thinking Display**: See Claude's internal reasoning before responses
 - **TRUE Real-Time Streaming**: Responses appear as generated - no fake delays!
 - **Transparent Reasoning**: Watch agents think through complex problems
 - **Configurable**: Toggle thinking on/off, adjust thinking depth
 
 👉 **[See FEATURES.md for full guide](FEATURES.md)**
+
+### 🔧 Geeky Technical Stats Mode (NEW!)
+- **Comprehensive Token Breakdown**: See input (context + prompt), output, and thinking tokens separately with individual costs
+- **Context Window Analysis**: View total exchanges, window size, character/token counts, and which specific turns are referenced
+- **Session Analytics**: Real-time tracking of current turn, total tokens, average per turn, and projected totals
+- **Model Configuration Details**: Display model name, temperature, and max tokens settings
+- **Configurable Display Modes**: Choose between simple (basic), detailed (enhanced), or geeky (full technical breakdown)
+
+Perfect for system engineers who want complete transparency into token usage, context management, and cost accumulation!
+
+### 💾 Database Persistence & Semantic Search (NEW!)
+- **PostgreSQL Storage**: All conversations, exchanges, and metadata persistently stored
+- **Qdrant Vector Search**: Semantic search across conversation history using embeddings
+- **Continue Conversations**: Resume any previous conversation from where you left off
+- **Rich Metadata**: AI-powered extraction of topics, concepts, themes, sentiment, and complexity
+- **Context Snapshots**: Automatic saving of conversation state for reliable resuming
+- **Interactive Dashboard**: Beautiful terminal-based visualization of conversation intelligence
+
+👉 **[See SETUP_DATABASE.md for database setup](SETUP_DATABASE.md)**
+
+### 📁 Unified Conversation Management (NEW!)
+- **Streamlined Menu**: Simplified interface from 7 to 6 main options
+- **Integrated Actions**: View, continue, and delete conversations from single menu flow
+- **Safety Features**: Multi-step confirmation for destructive operations
+- **Quick Navigation**: Easy browsing of conversation history with previews
 
 ### Context Management
 - **Immediate Buffer**: Always includes last 2-3 full exchanges
@@ -349,6 +374,7 @@ context:
 display:
   mode: "single"            # "single" or "dual" terminal
   show_tokens: true         # Display token usage
+  stats_mode: "geeky"       # "simple", "detailed", or "geeky" (NEW!)
   use_colors: true          # Color-coded output
   clear_screen: false       # Clear between turns
 
@@ -363,20 +389,31 @@ logging:
 claude-agent-chat/
 ├── .claude/
 │   └── agents/
-│       ├── agent_a.md          # Nova (Optimistic Visionary)
-│       └── agent_b.md          # Atlas (Pragmatic Analyst)
-├── coordinator.py              # Main orchestration script
-├── conversation_manager.py     # Context & memory management
-├── agent_runner.py            # API client management
-├── display_formatter.py       # Terminal output formatting
-├── config.yaml               # Configuration file
-├── FEATURES.md              # Extended thinking & streaming guide (NEW!)
-├── .env.example              # Environment variable template
-├── .env                      # Your API key (create from .env.example)
-├── requirements.txt          # Python dependencies
-├── README.md                # This file
-├── conversation_log.json    # Generated: Full history
-└── conversation_transcript.md  # Generated: Readable transcript
+│       ├── agent_a.md                    # Nova (Optimistic Visionary)
+│       └── agent_b.md                    # Atlas (Pragmatic Analyst)
+├── coordinator.py                        # Original orchestration script
+├── coordinator_with_memory.py            # NEW: With database persistence
+├── conversation_manager.py               # Context & memory management
+├── conversation_manager_persistent.py    # NEW: Database-backed manager
+├── agent_runner.py                      # API client management
+├── display_formatter.py                 # Terminal output formatting
+├── menu.py                             # NEW: Interactive menu system
+├── db_manager.py                       # NEW: PostgreSQL & Qdrant manager
+├── cost_calculator.py                  # NEW: Token cost tracking
+├── settings_manager.py                 # NEW: Configuration management
+├── metadata_extractor.py               # NEW: AI-powered conversation analysis
+├── terminal_dashboard.py               # NEW: Rich metadata visualization
+├── config.yaml                         # Configuration file
+├── docker-compose.yml                  # NEW: Database services setup
+├── init.sql                           # NEW: PostgreSQL schema
+├── metadata_schema.sql                # NEW: Metadata tables
+├── FEATURES.md                        # Extended thinking & streaming guide
+├── SETUP_DATABASE.md                  # NEW: Database setup guide
+├── CHANGELOG.md                       # NEW: Version history
+├── .env.example                       # Environment variable template
+├── .env                              # Your API key (create from .env.example)
+├── requirements.txt                   # Python dependencies
+└── README.md                         # This file
 ```
 
 ## How It Works

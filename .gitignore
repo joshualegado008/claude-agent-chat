@@ -1,6 +1,9 @@
 # Environment variables
 .env
 
+# Settings with API keys (user-specific)
+settings.json
+
 # Log files
 conversation_log.json
 conversation_transcript.md
