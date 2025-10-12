@@ -6,10 +6,12 @@ agents:
     name: "Nova"
     id: "agent_a"
     color: "cyan"
+    max_tokens: 8000  # Must be greater than thinking_budget (5000)
   agent_b:
     name: "Atlas"
     id: "agent_b"
     color: "yellow"
+    max_tokens: 8000  # Must be greater than thinking_budget (5000)
 
 # Conversation settings
 conversation:
