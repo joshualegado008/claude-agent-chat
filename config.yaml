@@ -1,0 +1,76 @@
+# Agent Conversation Coordinator Configuration
+
+# Agent settings
+agents:
+  agent_a:
+    name: "Nova"
+    id: "agent_a"
+    color: "cyan"
+  agent_b:
+    name: "Atlas"
+    id: "agent_b"
+    color: "yellow"
+
+# Conversation settings
+conversation:
+  max_turns: 20  # Maximum number of exchanges before stopping
+  initial_prompt: "What do you think about the future of AI agents working together autonomously?"
+  turn_delay: 1.0  # Seconds to wait between turns (for readability)
+
+# Context management strategy
+context:
+  # Number of most recent exchanges to always include in full
+  immediate_exchanges: 3
+
+  # Start summarizing when history exceeds this many exchanges
+  summarize_after: 6
+
+  # Always preserve the original question/prompt
+  preserve_original: true
+
+  # Create checkpoints at these intervals (turns)
+  checkpoint_interval: 5
+
+  # Maximum tokens to allow in context (approximate)
+  max_context_tokens: 8000
+
+  # Summarization strategy: "recursive" or "simple"
+  summarization_strategy: "recursive"
+
+# Display settings
+display:
+  # Mode: "single" (one terminal, alternating) or "dual" (coordinate two terminals)
+  mode: "single"
+
+  # Show token usage estimates
+  show_tokens: true
+
+  # Show context summary before each turn
+  show_context_summary: false
+
+  # Show timestamps
+  show_timestamps: true
+
+  # Use colors for agent names
+  use_colors: true
+
+  # Clear screen between turns (single mode only)
+  clear_screen: false
+
+# Logging settings
+logging:
+  # Save full conversation history
+  save_full_history: true
+
+  # Output format: "json" or "markdown"
+  format: "json"
+
+  # Output file path (relative to project root)
+  output_file: "conversation_log.json"
+
+  # Also save markdown transcript
+  save_transcript: true
+  transcript_file: "conversation_transcript.md"
+
+  # Log level for debugging
+  debug: false
