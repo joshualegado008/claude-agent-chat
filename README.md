@@ -37,6 +37,14 @@ This project enables two Claude Code agents to have natural, extended conversati
 
 ## Features
 
+### 🧠 Extended Thinking & ⚡ Real-Time Streaming (NEW!)
+- **Extended Thinking Display**: See Claude's internal reasoning before responses
+- **TRUE Real-Time Streaming**: Responses appear as generated - no fake delays!
+- **Transparent Reasoning**: Watch agents think through complex problems
+- **Configurable**: Toggle thinking on/off, adjust thinking depth
+
+👉 **[See FEATURES.md for full guide](FEATURES.md)**
+
 ### Context Management
 - **Immediate Buffer**: Always includes last 2-3 full exchanges
 - **Anchor Points**: Preserves original question and key checkpoints
@@ -48,7 +56,7 @@ This project enables two Claude Code agents to have natural, extended conversati
 - **Atlas** (@agent_b): Pragmatic analyst who questions assumptions
 
 ### Output & Logging
-- Color-coded terminal display
+- Color-coded terminal display with thinking visualization
 - Real-time token usage tracking
 - JSON conversation logs with full metadata
 - Markdown transcripts for easy reading
@@ -328,6 +336,8 @@ conversation:
   max_turns: 20              # Maximum exchanges
   initial_prompt: "..."      # Default starting question
   turn_delay: 1.0           # Seconds between turns
+  show_thinking: true        # Show extended thinking (NEW!)
+  thinking_budget: 5000      # Thinking token budget (NEW!)
 
 context:
   immediate_exchanges: 3     # Always keep last N exchanges
@@ -360,6 +370,7 @@ claude-agent-chat/
 ├── agent_runner.py            # API client management
 ├── display_formatter.py       # Terminal output formatting
 ├── config.yaml               # Configuration file
+├── FEATURES.md              # Extended thinking & streaming guide (NEW!)
 ├── .env.example              # Environment variable template
 ├── .env                      # Your API key (create from .env.example)
 ├── requirements.txt          # Python dependencies

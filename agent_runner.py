@@ -217,6 +217,119 @@ class AgentRunner:
             print(f"❌ Agent {agent_id} validation failed: {str(e)}")
             return False
 
+    def send_message_streaming(
+        self,
+        agent_id: str,
+        context_messages: List[Message],
+        new_message: str,
+        enable_thinking: bool = True,
+        thinking_budget: int = 5000
+    ):
+        """
+        Send a message to an agent with streaming and optional extended thinking.
+
+        Args:
+            agent_id: The agent identifier (e.g., 'agent_a', 'agent_b')
+            context_messages: Previous conversation context
+            new_message: The new message to send
+            enable_thinking: Whether to show extended thinking
+            thinking_budget: Maximum tokens for thinking (default 5000)
+
+        Yields:
+            Tuples of (content_type, chunk, token_info) where:
+            - content_type: 'thinking' or 'text'
+            - chunk: Text chunk to display
+            - token_info: Dict with token usage info (only on final chunk)
+        """
+        try:
+            # Build conversation history for this agent
+            messages = self._build_messages(context_messages, new_message)
+
+            # Get agent's system prompt
+            system_prompt = self.agent_prompts.get(agent_id)
+            if not system_prompt:
+                raise ValueError(f"No system prompt found for agent: {agent_id}")
+
+            # Get model configuration
+            agent_config = self.config.get('agents', {}).get(agent_id, {})
+            model = agent_config.get('model', 'claude-sonnet-4-5-20250929')
+            max_tokens = agent_config.get('max_tokens', 2048)
+            temperature = agent_config.get('temperature', 1.0)
+
+            # Build thinking configuration
+            thinking_config = {}
+            if enable_thinking and 'sonnet-4' in model.lower():
+                thinking_config = {
+                    'type': 'enabled',
+                    'budget_tokens': thinking_budget
+                }
+
+            # Stream the response
+            thinking_text = ""
+            response_text = ""
+            input_tokens = 0
+            output_tokens = 0
+
+            with self.client.messages.stream(
+                model=model,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                system=system_prompt,
+                messages=messages,
+                thinking=thinking_config if thinking_config else None
+            ) as stream:
+                for event in stream:
+                    # Handle thinking blocks
+                    if hasattr(event, 'type') and event.type == 'content_block_start':
+                        if hasattr(event, 'content_block') and hasattr(event.content_block, 'type'):
+                            if event.content_block.type == 'thinking':
+                                # Signal start of thinking
+                                yield ('thinking_start', '', {})
+
+                    elif hasattr(event, 'type') and event.type == 'content_block_delta':
+                        if hasattr(event, 'delta'):
+                            if hasattr(event.delta, 'type'):
+                                if event.delta.type == 'thinking_delta':
+                                    # Yield thinking chunks
+                                    if hasattr(event.delta, 'thinking'):
+                                        thinking_text += event.delta.thinking
+                                        yield ('thinking', event.delta.thinking, {})
+                                elif event.delta.type == 'text_delta':
+                                    # Yield text chunks
+                                    if hasattr(event.delta, 'text'):
+                                        response_text += event.delta.text
+                                        yield ('text', event.delta.text, {})
+
+                # Get final message with token usage
+                final_message = stream.get_final_message()
+                if final_message and hasattr(final_message, 'usage'):
+                    input_tokens = final_message.usage.input_tokens
+                    output_tokens = final_message.usage.output_tokens
+
+            # Yield final token info
+            token_info = {
+                'input_tokens': input_tokens,
+                'output_tokens': output_tokens,
+                'total_tokens': input_tokens + output_tokens,
+                'thinking_text': thinking_text,
+                'response_text': response_text
+            }
+            yield ('complete', '', token_info)
+
+            # Log token usage if debug enabled
+            if self.config.get('logging', {}).get('debug', False):
+                print(f"[DEBUG] Agent {agent_id} tokens: "
+                      f"in={input_tokens} out={output_tokens}")
+
+        except anthropic.APIError as e:
+            error_msg = f"API Error for agent {agent_id}: {str(e)}"
+            print(f"❌ {error_msg}")
+            yield ('error', error_msg, {})
+        except Exception as e:
+            error_msg = f"Error communicating with agent {agent_id}: {str(e)}"
+            print(f"❌ {error_msg}")
+            yield ('error', error_msg, {})
+
     def get_agent_stats(self, agent_id: str) -> Dict:
         """
         Get statistics for an agent.

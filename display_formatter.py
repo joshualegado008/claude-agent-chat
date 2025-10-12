@@ -221,3 +221,46 @@ class DisplayFormatter:
             return default
 
         return response in ['y', 'yes']
+
+    def print_thinking_header(self, agent_name: str):
+        """Print header for thinking section"""
+        if self.use_colors:
+            print(f"\n{Fore.YELLOW}{Style.DIM}💭 {agent_name} is thinking...{Style.RESET_ALL}")
+        else:
+            print(f"\n💭 {agent_name} is thinking...")
+        print(f"{Fore.YELLOW}{Style.DIM}{'─' * 60}{Style.RESET_ALL}")
+
+    def print_thinking_chunk(self, chunk: str):
+        """Print a chunk of thinking content in real-time"""
+        if self.use_colors:
+            print(f"{Fore.YELLOW}{Style.DIM}{chunk}{Style.RESET_ALL}", end='', flush=True)
+        else:
+            print(chunk, end='', flush=True)
+
+    def print_thinking_end(self):
+        """Print separator at end of thinking"""
+        if self.use_colors:
+            print(f"\n{Fore.YELLOW}{Style.DIM}{'─' * 60}{Style.RESET_ALL}")
+        else:
+            print(f"\n{'─' * 60}")
+
+    def print_response_header(self, agent_name: str, agent_id: str):
+        """Print header for response section"""
+        color = self.agent_colors.get(agent_id, Fore.WHITE)
+        if self.use_colors:
+            print(f"\n{color}{Style.BRIGHT}💬 {agent_name} responds:{Style.RESET_ALL}")
+        else:
+            print(f"\n💬 {agent_name} responds:")
+        print(f"{color}{'─' * 60}{Style.RESET_ALL}")
+
+    def print_streaming_chunk(self, chunk: str, agent_id: str):
+        """Print a chunk of response content in real-time"""
+        color = self.agent_colors.get(agent_id, Fore.WHITE)
+        if self.use_colors:
+            print(f"{color}{chunk}{Style.RESET_ALL}", end='', flush=True)
+        else:
+            print(chunk, end='', flush=True)
+
+    def print_response_end(self):
+        """Print newline at end of response"""
+        print()  # Just a newline to finish the response

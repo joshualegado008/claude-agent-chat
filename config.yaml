@@ -17,6 +17,10 @@ conversation:
   initial_prompt: "What do you think about the future of AI agents working together autonomously?"
   turn_delay: 1.0  # Seconds to wait between turns (for readability)
 
+  # Extended thinking feature
+  show_thinking: true  # Show Claude's internal reasoning before responses
+  thinking_budget: 5000  # Maximum tokens for thinking (1000-10000)
+
 # Context management strategy
 context:
   # Number of most recent exchanges to always include in full

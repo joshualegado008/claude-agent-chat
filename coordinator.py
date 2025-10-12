@@ -44,6 +44,8 @@ class ConversationCoordinator:
 
         self.max_turns = self.conversation_config.get('max_turns', 20)
         self.turn_delay = self.conversation_config.get('turn_delay', 1.0)
+        self.show_thinking = self.conversation_config.get('show_thinking', True)
+        self.thinking_budget = self.conversation_config.get('thinking_budget', 5000)
 
     def _load_config(self, config_path: str) -> Dict:
         """Load configuration from YAML file"""
@@ -134,29 +136,76 @@ class ConversationCoordinator:
                     total_context_tokens = sum(msg.tokens_estimate for msg in context)
                     self.display.print_context_summary(len(context), total_context_tokens)
 
-                # Get response from agent
-                self.display.print_info(f"{agent_name} is thinking...")
+                # Get streaming response from agent
+                response_text = ""
+                thinking_text = ""
+                has_thinking = False
+                token_info = {}
 
-                response = self.agent_runner.send_message_to_agent(
-                    current_agent_id,
-                    context,
-                    current_message
-                )
+                try:
+                    stream = self.agent_runner.send_message_streaming(
+                        current_agent_id,
+                        context,
+                        current_message,
+                        enable_thinking=self.show_thinking,
+                        thinking_budget=self.thinking_budget
+                    )
 
-                if not response:
-                    self.display.print_error(f"Failed to get response from {agent_name}")
+                    for content_type, chunk, info in stream:
+                        if content_type == 'thinking_start':
+                            # Start thinking display
+                            if self.show_thinking:
+                                has_thinking = True
+                                self.display.print_thinking_header(agent_name)
+
+                        elif content_type == 'thinking':
+                            # Display thinking chunks in real-time
+                            if self.show_thinking:
+                                thinking_text += chunk
+                                self.display.print_thinking_chunk(chunk)
+
+                        elif content_type == 'text':
+                            # First text chunk - show response header
+                            if not response_text:
+                                if has_thinking and self.show_thinking:
+                                    self.display.print_thinking_end()
+                                self.display.print_response_header(agent_name, current_agent_id)
+
+                            # Display response chunks in real-time
+                            response_text += chunk
+                            self.display.print_streaming_chunk(chunk, current_agent_id)
+
+                        elif content_type == 'complete':
+                            # Stream complete
+                            token_info = info
+                            if response_text:
+                                self.display.print_response_end()
+
+                        elif content_type == 'error':
+                            self.display.print_error(f"Failed to get response from {agent_name}: {chunk}")
+                            break
+
+                    if not response_text:
+                        self.display.print_error(f"No response received from {agent_name}")
+                        break
+
+                except Exception as e:
+                    self.display.print_error(f"Error during streaming: {e}")
+                    if self.logging_config.get('debug', False):
+                        import traceback
+                        traceback.print_exc()
                     break
 
-                # Display the response
-                print()  # Blank line before response
-                self.display.print_message(response, current_agent_id, indent=2)
-
                 # Add to history
-                exchange = self.history.add_exchange(agent_name, response, context)
+                exchange = self.history.add_exchange(agent_name, response_text, context)
 
                 # Show token usage
                 total_tokens = self.history.get_total_tokens()
-                self.display.print_token_usage(exchange.message.tokens_estimate, total_tokens)
+                turn_tokens = token_info.get('output_tokens', exchange.message.tokens_estimate)
+                self.display.print_token_usage(turn_tokens, total_tokens)
+
+                # Use response for next turn
+                response = response_text
 
                 # Check for checkpoint
                 if exchange.message.is_checkpoint or len(self.history.checkpoints) > 0:
