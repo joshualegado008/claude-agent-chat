@@ -71,6 +71,10 @@ Perfect for system engineers who want complete transparency into token usage, co
 - **Real-Time Streaming**: Watch agent responses appear as they're generated
 - **Continue Conversations**: Resume any active conversation (< 20 turns) from the web UI
 - **Browse History**: View all completed conversations with full exchanges and thinking content
+- **Permanent Statistics Display**: Token usage and cost tracking for ALL conversations (live and completed)
+  - Header stats always visible during viewing
+  - Detailed breakdown panel with per-agent analytics
+  - Historical cost calculation using current model pricing
 - **Responsive Design**: Works on desktop and mobile with Tailwind CSS
 
 **Quick Start Web Interface:**
@@ -448,6 +452,7 @@ claude-agent-chat/
 │   │   │   ├── useWebSocket.ts           # WebSocket management
 │   │   │   └── useConversations.ts       # Data fetching
 │   │   └── lib/                          # Utilities
+│   │   │   └── costCalculator.ts         # NEW: Token cost calculation
 │   ├── backend/                          # FastAPI backend
 │   │   ├── api.py                        # REST + WebSocket endpoints
 │   │   ├── bridge.py                     # Python module bridge
