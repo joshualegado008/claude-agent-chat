@@ -76,8 +76,22 @@ class PersistentConversationManager:
         self.metadata = data['conversation']
         self.current_turn = len(self.exchanges)
 
+        # Validate and auto-correct status if needed
+        current_status = self.metadata.get('status', 'active')
+        if self.current_turn >= 20 and current_status == 'active':
+            print(f"⚠️  Auto-correcting status: conversation has {self.current_turn} turns but marked as 'active'")
+            self.db.update_conversation_stats(
+                conversation_id=self.conversation_id,
+                total_turns=self.current_turn,
+                total_tokens=sum(ex.get('tokens_used', 0) for ex in self.exchanges),
+                status='completed'
+            )
+            self.metadata['status'] = 'completed'
+            print(f"   ✅ Status updated to 'completed'")
+
         print(f"\n✅ Loaded conversation: {self.metadata['title']}")
         print(f"   Turns: {self.current_turn}")
+        print(f"   Status: {self.metadata.get('status', 'active')}")
         print(f"   Created: {self.metadata['created_at']}")
         print(f"   Agents: {self.metadata['agent_a_name']} ↔ {self.metadata['agent_b_name']}")
 

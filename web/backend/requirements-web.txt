@@ -1,0 +1,19 @@
+# FastAPI Web Backend Requirements
+# These are IN ADDITION to the main requirements.txt
+
+# Web Framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+websockets==12.0
+
+# CORS and middleware
+python-multipart==0.0.6
+
+# Already in main requirements.txt (listed for reference):
+# - anthropic
+# - psycopg2-binary
+# - qdrant-client
+# - pyyaml
+# - python-dotenv
+# - openai
+# - colorama

@@ -8,6 +8,20 @@ settings.json
 conversation_log.json
 conversation_transcript.md
 
+# Web backend markers
+web/backend/.installed
+
+# Next.js / Frontend
+web/frontend/.next/
+web/frontend/node_modules/
+web/frontend/.turbo/
+web/frontend/out/
+web/frontend/build/
+web/frontend/.env.local
+web/frontend/.env.development.local
+web/frontend/.env.test.local
+web/frontend/.env.production.local
+
 # Python
 __pycache__/
 *.py[cod]
@@ -20,7 +34,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# Only ignore Python lib, not Next.js lib
+/lib/
 lib64/
 parts/
 sdist/

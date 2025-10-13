@@ -1,0 +1,98 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-900 text-slate-100;
+  }
+}
+
+/* Custom scrollbar - dark theme optimized */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-slate-800;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-600 rounded-lg;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-500;
+}
+
+/* Smooth animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Typing indicator animation */
+.typing-dot {
+  animation: typing 1.4s infinite;
+}
+
+.typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing {
+  0%, 60%, 100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-10px);
+  }
+}
+
+/* Thinking animation */
+.thinking-animation {
+  animation: pulse-thinking 2s ease-in-out infinite;
+}
+
+@keyframes pulse-thinking {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Selection color - pleasant cyan */
+::selection {
+  @apply bg-cyan-500/30 text-cyan-100;
+}
+
+/* Code blocks */
+pre {
+  @apply bg-slate-800 rounded-lg p-4 overflow-x-auto border border-slate-700;
+}
+
+code {
+  @apply bg-slate-800 rounded px-2 py-1 text-sm border border-slate-700;
+}
+
+/* Links */
+a {
+  @apply text-cyan-400 hover:text-cyan-300 transition-colors;
+}

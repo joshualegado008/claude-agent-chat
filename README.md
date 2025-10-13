@@ -64,6 +64,47 @@ Perfect for system engineers who want complete transparency into token usage, co
 
 👉 **[See SETUP_DATABASE.md for database setup](SETUP_DATABASE.md)**
 
+### 🌐 Modern Web Interface (NEW!)
+- **React + Next.js Frontend**: Beautiful dark-mode UI with real-time streaming
+- **FastAPI Backend**: RESTful API + WebSocket support for live conversations
+- **Dual Interface System**: Terminal and web work simultaneously, sharing the same database
+- **Real-Time Streaming**: Watch agent responses appear as they're generated
+- **Continue Conversations**: Resume any active conversation (< 20 turns) from the web UI
+- **Browse History**: View all completed conversations with full exchanges and thinking content
+- **Responsive Design**: Works on desktop and mobile with Tailwind CSS
+
+**Quick Start Web Interface:**
+```bash
+# Start databases (if not already running)
+docker-compose up -d
+
+# Start web services (backend + frontend)
+./web/start-web.sh
+
+# Open browser
+open http://localhost:3000
+```
+
+**Architecture:**
+```
+┌──────────────────┐  ┌──────────────────┐
+│  Terminal CLI    │  │  Web Interface   │
+│  (Python)        │  │  (React/Next.js) │
+│  coordinator.py  │  │  localhost:3000  │
+└─────────┬────────┘  └─────────┬────────┘
+          │                     │
+          │   Shared Storage    │
+          └──────────┬──────────┘
+                     ▼
+          ┌────────────────────┐
+          │  Docker Services   │
+          │  • PostgreSQL      │
+          │  • Qdrant          │
+          └────────────────────┘
+```
+
+Both interfaces can run at the same time - conversations created in the terminal appear in the web UI and vice versa!
+
 ### 📁 Unified Conversation Management (NEW!)
 - **Streamlined Menu**: Simplified interface from 7 to 6 main options
 - **Integrated Actions**: View, continue, and delete conversations from single menu flow
@@ -91,6 +132,8 @@ Perfect for system engineers who want complete transparency into token usage, co
 1. **Prerequisites**
    - Python 3.8+
    - Anthropic API key ([Get one here](https://console.anthropic.com/settings/keys))
+   - Docker & Docker Compose (for databases)
+   - Node.js 18+ (for web interface - optional)
    - Terminal with color support (recommended)
 
 2. **Setup API Key**
@@ -391,6 +434,25 @@ claude-agent-chat/
 │   └── agents/
 │       ├── agent_a.md                    # Nova (Optimistic Visionary)
 │       └── agent_b.md                    # Atlas (Pragmatic Analyst)
+├── web/                                  # NEW: Web Interface
+│   ├── frontend/                         # Next.js React app
+│   │   ├── app/                          # App Router pages
+│   │   │   ├── page.tsx                  # Home page (conversation list)
+│   │   │   ├── new/page.tsx              # Create new conversation
+│   │   │   └── conversation/[id]/page.tsx # Conversation viewer
+│   │   ├── components/                   # React components
+│   │   │   ├── AgentMessage.tsx          # Message display with thinking
+│   │   │   ├── ConversationControls.tsx  # Pause/Resume/Stop controls
+│   │   │   └── InterruptDashboard.tsx    # Metadata dashboard
+│   │   ├── hooks/                        # Custom React hooks
+│   │   │   ├── useWebSocket.ts           # WebSocket management
+│   │   │   └── useConversations.ts       # Data fetching
+│   │   └── lib/                          # Utilities
+│   ├── backend/                          # FastAPI backend
+│   │   ├── api.py                        # REST + WebSocket endpoints
+│   │   ├── bridge.py                     # Python module bridge
+│   │   └── websocket_handler.py          # WebSocket streaming logic
+│   └── start-web.sh                      # Service launcher
 ├── coordinator.py                        # Original orchestration script
 ├── coordinator_with_memory.py            # NEW: With database persistence
 ├── conversation_manager.py               # Context & memory management
@@ -407,6 +469,7 @@ claude-agent-chat/
 ├── docker-compose.yml                  # NEW: Database services setup
 ├── init.sql                           # NEW: PostgreSQL schema
 ├── metadata_schema.sql                # NEW: Metadata tables
+├── fix_conversation_status.sql        # NEW: Database maintenance
 ├── FEATURES.md                        # Extended thinking & streaming guide
 ├── SETUP_DATABASE.md                  # NEW: Database setup guide
 ├── CHANGELOG.md                       # NEW: Version history
@@ -595,11 +658,15 @@ Potential improvements:
 - [ ] True recursive summarization using LLM
 - [ ] Multi-agent support (3+ agents)
 - [ ] Real-time context editing
-- [ ] Web interface
+- [x] Web interface (✅ Complete!)
 - [ ] Conversation branching
 - [ ] Agent personality templates
-- [ ] Sentiment analysis
-- [ ] Topic tracking
+- [x] Sentiment analysis (✅ In metadata extraction)
+- [x] Topic tracking (✅ In metadata extraction)
+- [ ] Mobile app
+- [ ] Conversation export/import
+- [ ] Custom agent creation UI
+- [ ] Advanced search filters
 
 ## Contributing
 
@@ -616,13 +683,15 @@ MIT License - feel free to use and modify
 ## Credits
 
 Built with:
-- Claude Code CLI
-- Python 3
-- colorama for terminal colors
-- PyYAML for configuration
+- **Backend**: Claude Code CLI, Python 3, FastAPI, PostgreSQL, Qdrant
+- **Frontend**: React, Next.js 14, Tailwind CSS, TypeScript
+- **Libraries**: colorama, PyYAML, psycopg2, openai (embeddings), tanstack/react-query
+- **Infrastructure**: Docker, Docker Compose
 
 Inspired by research in:
 - LLM context window management
 - Multi-agent conversation systems
 - LangGraph memory patterns
 - Anthropic's Claude API best practices
+- Real-time WebSocket streaming
+- Modern React patterns (Server Components, Suspense)

@@ -266,11 +266,14 @@ class DatabaseManager:
 
             snapshot = cursor.fetchone()
 
-        return {
+        # Serialize datetime objects to ISO strings for JSON compatibility
+        result = {
             'conversation': dict(conversation),
             'exchanges': [dict(e) for e in exchanges],
             'last_snapshot': dict(snapshot) if snapshot else None
         }
+
+        return self._serialize_datetime(result)
 
     def list_conversations(
         self,
@@ -295,7 +298,8 @@ class DatabaseManager:
             params.append(limit)
 
             cursor.execute(query, params)
-            return [dict(row) for row in cursor.fetchall()]
+            results = [dict(row) for row in cursor.fetchall()]
+            return self._serialize_datetime(results)
 
     def search_conversations(
         self,
@@ -334,7 +338,7 @@ class DatabaseManager:
                         'similarity_score': result.score
                     })
 
-        return enriched_results
+        return self._serialize_datetime(enriched_results)
 
     def delete_conversation(self, conversation_id: str) -> bool:
         """
