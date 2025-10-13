@@ -126,12 +126,29 @@ async def get_conversation(conversation_id: str):
         conversation = data['conversation']
         exchanges = data['exchanges']
 
+        # Load config.yaml to get agent models
+        import yaml
+        from pathlib import Path
+        config_path = Path(__file__).parent.parent.parent / 'config.yaml'
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+
+        # Extract agent models based on agent IDs
+        agent_a_id = conversation.get("agent_a_id")
+        agent_b_id = conversation.get("agent_b_id")
+        agent_a_model = config['agents'].get(agent_a_id, {}).get('model', 'claude-sonnet-4-5-20250929')
+        agent_b_model = config['agents'].get(agent_b_id, {}).get('model', 'claude-sonnet-4-5-20250929')
+
         return {
             "id": str(conversation.get("id")),
             "title": conversation.get("title"),
             "initial_prompt": conversation.get("initial_prompt"),
+            "agent_a_id": agent_a_id,
             "agent_a_name": conversation.get("agent_a_name"),
+            "agent_a_model": agent_a_model,
+            "agent_b_id": agent_b_id,
             "agent_b_name": conversation.get("agent_b_name"),
+            "agent_b_model": agent_b_model,
             "total_turns": conversation.get("total_turns", 0),
             "total_tokens": conversation.get("total_tokens", 0),
             "status": conversation.get("status"),

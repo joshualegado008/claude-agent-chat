@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, MessageSquare, Play } from 'lucide-react';
 import { useWebSocket } from '@/hooks/useWebSocket';
@@ -10,6 +10,7 @@ import { ConversationControls } from '@/components/ConversationControls';
 import { InterruptDashboard } from '@/components/InterruptDashboard';
 import { LoadingScreen } from '@/components/Loading';
 import { formatNumber, formatCost } from '@/lib/utils';
+import { calculateHistoricalStats } from '@/lib/costCalculator';
 
 export default function ConversationPage() {
   const params = useParams();
@@ -32,6 +33,21 @@ export default function ConversationPage() {
   const [isLive, setIsLive] = useState(false); // Track if WebSocket is active
   const [showDashboard, setShowDashboard] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Calculate historical stats from exchanges (MUST be before early returns)
+  const historicalStats = useMemo(() => {
+    if (!conversationData || !conversationData.exchanges || conversationData.exchanges.length === 0) {
+      return null;
+    }
+
+    return calculateHistoricalStats(
+      conversationData.exchanges,
+      conversationData.agent_a_name,
+      conversationData.agent_a_model,
+      conversationData.agent_b_name,
+      conversationData.agent_b_model
+    );
+  }, [conversationData]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -80,10 +96,9 @@ export default function ConversationPage() {
   const isComplete = isLive ? state.isComplete : conversationData.status === 'completed';
   const showContinueButton = !isLive && conversationData.status === 'active' && conversationData.total_turns < 20;
 
-  const showStats = state.currentStats !== null;
-  const totalCost = exchanges.reduce((sum, ex) => {
-    return sum;
-  }, 0) + (state.currentStats?.total_cost || 0);
+  // Show stats if we have either live stats OR historical stats
+  const showLiveStats = state.currentStats !== null;
+  const showHistoricalStats = historicalStats !== null && !isLive;
 
   return (
     <div className="min-h-screen bg-slate-900">
@@ -107,24 +122,30 @@ export default function ConversationPage() {
             </div>
 
             {/* Progress Stats */}
-            {showStats && (
+            {(showLiveStats || showHistoricalStats) && (
               <div className="flex items-center space-x-6 text-sm">
                 <div className="text-center">
-                  <div className="text-slate-400">Turn</div>
+                  <div className="text-slate-400">Turns</div>
                   <div className="font-bold text-lg">
-                    {state.currentStats.session_stats?.current_turn || 0}
+                    {showLiveStats
+                      ? state.currentStats.session_stats?.current_turn || 0
+                      : exchanges.length}
                   </div>
                 </div>
                 <div className="text-center">
                   <div className="text-slate-400">Tokens</div>
                   <div className="font-bold text-lg">
-                    {formatNumber(state.currentStats.session_stats?.projected_total_tokens || state.currentStats.total_tokens)}
+                    {showLiveStats
+                      ? formatNumber(state.currentStats.session_stats?.projected_total_tokens || state.currentStats.total_tokens)
+                      : formatNumber(historicalStats?.totalTokens || 0)}
                   </div>
                 </div>
                 <div className="text-center">
                   <div className="text-slate-400">Cost</div>
                   <div className="font-bold text-lg">
-                    {formatCost(state.currentStats.total_cost)}
+                    {showLiveStats
+                      ? formatCost(state.currentStats.total_cost)
+                      : formatCost(historicalStats?.totalCost || 0)}
                   </div>
                 </div>
               </div>
@@ -226,8 +247,8 @@ export default function ConversationPage() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Stats Panel (if available) */}
-          {showStats && state.currentStats && (
+          {/* Live Stats Panel (during streaming) */}
+          {showLiveStats && state.currentStats && (
             <div className="bg-slate-800 rounded-xl shadow-lg p-6 border border-slate-700">
               <h3 className="text-lg font-bold mb-4">📊 Turn Statistics</h3>
 
@@ -311,6 +332,69 @@ export default function ConversationPage() {
             </div>
           )}
 
+          {/* Historical Stats Panel (for completed conversations) */}
+          {showHistoricalStats && historicalStats && (
+            <div className="bg-slate-800 rounded-xl shadow-lg p-6 border border-slate-700">
+              <h3 className="text-lg font-bold mb-4">📊 Conversation Statistics</h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Overall Stats */}
+                <div className="space-y-2">
+                  <h4 className="font-medium text-sm text-slate-400">
+                    Overall Totals
+                  </h4>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span>Total Turns:</span>
+                      <span className="font-mono font-bold">{exchanges.length}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Total Tokens:</span>
+                      <span className="font-mono font-bold">{formatNumber(historicalStats.totalTokens)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Total Cost:</span>
+                      <span className="font-mono font-bold text-green-400">{formatCost(historicalStats.totalCost)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-400 text-xs mt-2">
+                      <span>Avg per turn:</span>
+                      <span className="font-mono">{formatNumber(Math.round(historicalStats.totalTokens / exchanges.length))} tokens</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Per-Agent Breakdown */}
+                <div className="space-y-2">
+                  <h4 className="font-medium text-sm text-slate-400">
+                    Per-Agent Breakdown
+                  </h4>
+                  <div className="space-y-3 text-sm">
+                    {Object.entries(historicalStats.perAgentStats).map(([agentName, stats]) => (
+                      <div key={agentName} className="border-l-2 border-cyan-500 pl-3">
+                        <div className="font-medium text-cyan-400 mb-1">{agentName}</div>
+                        <div className="flex justify-between text-xs">
+                          <span>Tokens:</span>
+                          <span className="font-mono">{formatNumber(stats.tokens)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span>Cost:</span>
+                          <span className="font-mono">{formatCost(stats.cost)}</span>
+                        </div>
+                        <div className="text-xs text-slate-500 mt-1">
+                          Model: {stats.model?.includes('sonnet-4-5') ? 'Sonnet 4.5' : (stats.model || 'Unknown')}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-slate-700 text-xs text-slate-500">
+                Note: Costs calculated using current model configuration. Historical exchanges may have used different models.
+              </div>
+            </div>
+          )}
+
           {/* Error Display */}
           {state.error && (
             <div className="bg-red-900/20 border border-red-800 rounded-lg p-4">
@@ -329,7 +413,7 @@ export default function ConversationPage() {
           title={title}
           currentTurn={conversationData.total_turns}
           totalTokens={conversationData.total_tokens}
-          totalCost={totalCost}
+          totalCost={historicalStats?.totalCost || 0}
           onClose={() => setShowDashboard(false)}
           onResume={() => {
             setShowDashboard(false);

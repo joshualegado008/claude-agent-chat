@@ -501,13 +501,20 @@ class DisplayFormatter:
             - 'total_tokens': int
             - 'input_tokens': int
             - 'output_tokens': int
-            - 'model': str (if available)
+            - 'thinking_tokens': int
+            - 'model_name': str (if available)
+            - 'temperature': float
+            - 'max_tokens': int
         """
         response_text = ""
         thinking_text = ""
         has_thinking = False
         input_tokens = 0
         output_tokens = 0
+        thinking_tokens = 0
+        model_name = None
+        temperature = 1.0
+        max_tokens = 0
 
         try:
             # Get streaming response from agent
@@ -568,6 +575,10 @@ class DisplayFormatter:
                         print()  # Newline at end
                     input_tokens = info.get('input_tokens', 0)
                     output_tokens = info.get('output_tokens', 0)
+                    thinking_tokens = info.get('thinking_tokens', 0)
+                    model_name = info.get('model_name')
+                    temperature = info.get('temperature', 1.0)
+                    max_tokens = info.get('max_tokens', 0)
 
                 elif content_type == 'error':
                     if COLORS_AVAILABLE:
@@ -584,9 +595,9 @@ class DisplayFormatter:
 
         total_tokens = input_tokens + output_tokens
 
-        # Get model info from agent if available
-        model_name = None
-        if hasattr(agent, 'runner') and hasattr(agent.runner, 'config'):
+        # Model info should already be set from the 'complete' event
+        # If not available, try to get from agent config as fallback
+        if model_name is None and hasattr(agent, 'runner') and hasattr(agent.runner, 'config'):
             agent_config = agent.runner.config.get('agents', {}).get(agent.agent_id, {})
             model_name = agent_config.get('model')
 
@@ -594,7 +605,10 @@ class DisplayFormatter:
             'total_tokens': total_tokens,
             'input_tokens': input_tokens,
             'output_tokens': output_tokens,
-            'model': model_name
+            'thinking_tokens': thinking_tokens,
+            'model_name': model_name,  # Fixed key name to match coordinator expectations
+            'temperature': temperature,
+            'max_tokens': max_tokens
         }
 
         return response_text, token_info

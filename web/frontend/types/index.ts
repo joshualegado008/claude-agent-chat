@@ -6,8 +6,12 @@ export interface Conversation {
   id: string;
   title: string;
   initial_prompt: string;
+  agent_a_id: string;
   agent_a_name: string;
+  agent_a_model: string;
+  agent_b_id: string;
   agent_b_name: string;
+  agent_b_model: string;
   total_turns: number;
   total_tokens: number;
   status: 'active' | 'completed' | 'archived';

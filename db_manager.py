@@ -197,13 +197,18 @@ class DatabaseManager:
         status: str = 'active'
     ):
         """Update conversation statistics."""
-        with self.pg_conn.cursor() as cursor:
-            cursor.execute("""
-                UPDATE conversations
-                SET total_turns = %s, total_tokens = %s, status = %s
-                WHERE id = %s
-            """, (total_turns, total_tokens, status, conversation_id))
-            self.pg_conn.commit()
+        try:
+            with self.pg_conn.cursor() as cursor:
+                cursor.execute("""
+                    UPDATE conversations
+                    SET total_turns = %s, total_tokens = %s, status = %s
+                    WHERE id = %s
+                """, (total_turns, total_tokens, status, conversation_id))
+                self.pg_conn.commit()
+        except Exception as e:
+            self.pg_conn.rollback()
+            print(f"Error updating conversation stats: {e}")
+            raise
 
     def _serialize_datetime(self, obj):
         """Recursively convert datetime objects to ISO format strings for JSON serialization."""
@@ -237,43 +242,48 @@ class DatabaseManager:
 
     def load_conversation(self, conversation_id: str) -> Optional[Dict]:
         """Load a complete conversation with all exchanges."""
-        with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            # Get conversation metadata
-            cursor.execute("""
-                SELECT * FROM conversations WHERE id = %s
-            """, (conversation_id,))
+        try:
+            with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                # Get conversation metadata
+                cursor.execute("""
+                    SELECT * FROM conversations WHERE id = %s
+                """, (conversation_id,))
 
-            conversation = cursor.fetchone()
-            if not conversation:
-                return None
+                conversation = cursor.fetchone()
+                if not conversation:
+                    return None
 
-            # Get all exchanges
-            cursor.execute("""
-                SELECT * FROM exchanges
-                WHERE conversation_id = %s
-                ORDER BY turn_number
-            """, (conversation_id,))
+                # Get all exchanges
+                cursor.execute("""
+                    SELECT * FROM exchanges
+                    WHERE conversation_id = %s
+                    ORDER BY turn_number
+                """, (conversation_id,))
 
-            exchanges = cursor.fetchall()
+                exchanges = cursor.fetchall()
 
-            # Get latest context snapshot
-            cursor.execute("""
-                SELECT * FROM context_snapshots
-                WHERE conversation_id = %s
-                ORDER BY snapshot_at_turn DESC
-                LIMIT 1
-            """, (conversation_id,))
+                # Get latest context snapshot
+                cursor.execute("""
+                    SELECT * FROM context_snapshots
+                    WHERE conversation_id = %s
+                    ORDER BY snapshot_at_turn DESC
+                    LIMIT 1
+                """, (conversation_id,))
 
-            snapshot = cursor.fetchone()
+                snapshot = cursor.fetchone()
 
-        # Serialize datetime objects to ISO strings for JSON compatibility
-        result = {
-            'conversation': dict(conversation),
-            'exchanges': [dict(e) for e in exchanges],
-            'last_snapshot': dict(snapshot) if snapshot else None
-        }
+            # Serialize datetime objects to ISO strings for JSON compatibility
+            result = {
+                'conversation': dict(conversation),
+                'exchanges': [dict(e) for e in exchanges],
+                'last_snapshot': dict(snapshot) if snapshot else None
+            }
 
-        return self._serialize_datetime(result)
+            return self._serialize_datetime(result)
+        except Exception as e:
+            self.pg_conn.rollback()
+            print(f"Error loading conversation: {e}")
+            raise
 
     def list_conversations(
         self,
@@ -282,24 +292,29 @@ class DatabaseManager:
         tags: Optional[List[str]] = None
     ) -> List[Dict]:
         """List conversations with optional filters."""
-        with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            query = "SELECT * FROM conversation_summaries WHERE 1=1"
-            params = []
+        try:
+            with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                query = "SELECT * FROM conversation_summaries WHERE 1=1"
+                params = []
 
-            if status:
-                query += " AND status = %s"
-                params.append(status)
+                if status:
+                    query += " AND status = %s"
+                    params.append(status)
 
-            if tags:
-                query += " AND tags && %s"
-                params.append(tags)
+                if tags:
+                    query += " AND tags && %s"
+                    params.append(tags)
 
-            query += " ORDER BY updated_at DESC LIMIT %s"
-            params.append(limit)
+                query += " ORDER BY updated_at DESC LIMIT %s"
+                params.append(limit)
 
-            cursor.execute(query, params)
-            results = [dict(row) for row in cursor.fetchall()]
-            return self._serialize_datetime(results)
+                cursor.execute(query, params)
+                results = [dict(row) for row in cursor.fetchall()]
+                return self._serialize_datetime(results)
+        except Exception as e:
+            self.pg_conn.rollback()
+            print(f"Error listing conversations: {e}")
+            raise
 
     def search_conversations(
         self,

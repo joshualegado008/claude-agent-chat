@@ -148,6 +148,9 @@ export function useWebSocket(conversationId: string): UseWebSocketResult {
             setState(prev => ({
               ...prev,
               currentStats: message.stats || null,
+              currentAgentName: null,        // Clear current agent after completion
+              currentThinking: '',            // Clear thinking content
+              currentResponse: '',            // Clear response content
               exchanges: [
                 ...prev.exchanges,
                 {
