@@ -88,3 +88,31 @@ logging:
 
   # Log level for debugging
   debug: false
+
+# Web browsing capabilities (NEW!)
+web_browsing:
+  # Enable/disable web browsing for agents
+  enabled: true
+
+  # HTTP request settings
+  timeout: 15  # Seconds to wait for page load
+  user_agent: "ClaudeAgentChat/1.0 (Research Bot)"
+
+  # Content extraction settings
+  max_content_length: 100000  # Maximum characters from webpage
+  include_metadata: true       # Include title and description
+  extract_links: false         # Include links in content (not implemented yet)
+
+  # Security and rate limiting
+  max_urls_per_turn: 3  # Maximum URLs agent can fetch per turn
+
+  # Domain filtering (empty = all allowed)
+  allowed_domains: []   # e.g., ["wikipedia.org", "python.org"]
+
+  # Blocked domains (for security/privacy)
+  blocked_domains:
+    - "facebook.com"
+    - "twitter.com"
+    - "instagram.com"
+    - "tiktok.com"
+    # Add more domains to block as needed

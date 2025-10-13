@@ -8,6 +8,8 @@ import { useConversation } from '@/hooks/useConversations';
 import { AgentMessage, TypingIndicator } from '@/components/AgentMessage';
 import { ConversationControls } from '@/components/ConversationControls';
 import { InterruptDashboard } from '@/components/InterruptDashboard';
+import { InjectContentModal } from '@/components/InjectContentModal';
+import { ToolUseList } from '@/components/ToolUseMessage';
 import { LoadingScreen } from '@/components/Loading';
 import { formatNumber, formatCost } from '@/lib/utils';
 import { calculateHistoricalStats } from '@/lib/costCalculator';
@@ -28,10 +30,13 @@ export default function ConversationPage() {
     resume,
     stop,
     requestMetadata,
+    inject,
   } = useWebSocket(conversationId);
 
   const [isLive, setIsLive] = useState(false); // Track if WebSocket is active
   const [showDashboard, setShowDashboard] = useState(false);
+  const [showInjectModal, setShowInjectModal] = useState(false);
+  const [isInjecting, setIsInjecting] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Calculate historical stats from exchanges (MUST be before early returns)
@@ -68,6 +73,16 @@ export default function ConversationPage() {
     connect();
   };
 
+  const handleInject = async (content: string) => {
+    setIsInjecting(true);
+    inject(content);
+    // Close modal after a short delay to show feedback
+    setTimeout(() => {
+      setIsInjecting(false);
+      setShowInjectModal(false);
+    }, 500);
+  };
+
   if (isLoadingData) {
     return <LoadingScreen message="Loading conversation..." />;
   }
@@ -94,7 +109,8 @@ export default function ConversationPage() {
   const agentAName = isLive && state.agentAName ? state.agentAName : conversationData.agent_a_name;
   const agentBName = isLive && state.agentBName ? state.agentBName : conversationData.agent_b_name;
   const isComplete = isLive ? state.isComplete : conversationData.status === 'completed';
-  const showContinueButton = !isLive && conversationData.status === 'active' && conversationData.total_turns < 20;
+  const showContinueButton = !isLive && (conversationData.status === 'active' || conversationData.status === 'paused') && conversationData.total_turns < 20;
+  const continueButtonText = conversationData.status === 'paused' ? 'Resume Conversation' : 'Continue Conversation';
 
   // Show stats if we have either live stats OR historical stats
   const showLiveStats = state.currentStats !== null;
@@ -170,6 +186,7 @@ export default function ConversationPage() {
                 requestMetadata();
                 setShowDashboard(true);
               }}
+              onShowInject={() => setShowInjectModal(true)}
             />
           )}
 
@@ -178,7 +195,11 @@ export default function ConversationPage() {
             <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium">This conversation can be continued</p>
+                  <p className="font-medium">
+                    {conversationData.status === 'paused'
+                      ? 'This conversation is paused'
+                      : 'This conversation can be continued'}
+                  </p>
                   <p className="text-sm text-slate-400">
                     {conversationData.total_turns} turns so far (max: 20)
                   </p>
@@ -188,7 +209,7 @@ export default function ConversationPage() {
                   className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-medium hover:from-green-700 hover:to-emerald-700 transition-all"
                 >
                   <Play className="w-5 h-5" />
-                  <span>Continue Conversation</span>
+                  <span>{continueButtonText}</span>
                 </button>
               </div>
             </div>
@@ -218,6 +239,11 @@ export default function ConversationPage() {
             {/* Current Turn (Streaming) - Only when live */}
             {isLive && state.currentAgentName && (
               <div className="mb-6">
+                {/* Tool Use Display */}
+                {state.currentToolUses && state.currentToolUses.length > 0 && (
+                  <ToolUseList toolUses={state.currentToolUses} />
+                )}
+
                 {state.currentThinking === '' && state.currentResponse === '' ? (
                   <TypingIndicator agentName={state.currentAgentName} />
                 ) : (
@@ -423,6 +449,15 @@ export default function ConversationPage() {
             setShowDashboard(false);
             if (isLive) stop();
           }}
+        />
+      )}
+
+      {/* Inject Content Modal */}
+      {showInjectModal && (
+        <InjectContentModal
+          onClose={() => setShowInjectModal(false)}
+          onSubmit={handleInject}
+          isSubmitting={isInjecting}
         />
       )}
     </div>

@@ -23,7 +23,14 @@ class SettingsManager:
             'agent_b': 'claude-sonnet-4-5-20250929'
         },
         'embedding_model': 'text-embedding-3-small',
-        'use_env_keys': True  # Whether to prefer environment variables over stored keys
+        'use_env_keys': True,  # Whether to prefer environment variables over stored keys
+        'display_colors': {
+            'thinking': 'LIGHTYELLOW_EX',
+            'agents': {
+                'agent_a': 'CYAN',
+                'agent_b': 'YELLOW'
+            }
+        }
     }
 
     def __init__(self, settings_file: str = 'settings.json'):
@@ -144,6 +151,105 @@ class SettingsManager:
         """Set the embedding model."""
         self.settings['embedding_model'] = model
         self.save_settings()
+
+    def get_thinking_color(self) -> str:
+        """Get the color for thinking text display."""
+        return self.settings.get('display_colors', {}).get('thinking', 'LIGHTYELLOW_EX')
+
+    def set_thinking_color(self, color: str):
+        """
+        Set the color for thinking text display.
+
+        Args:
+            color: Colorama color name (e.g., 'CYAN', 'LIGHTYELLOW_EX')
+        """
+        if not self._validate_color(color):
+            raise ValueError(f"Invalid color name: {color}")
+
+        if 'display_colors' not in self.settings:
+            self.settings['display_colors'] = {}
+
+        self.settings['display_colors']['thinking'] = color
+        self.save_settings()
+
+    def get_agent_color(self, agent_id: str) -> str:
+        """
+        Get the display color for a specific agent.
+
+        Args:
+            agent_id: Agent identifier (e.g., 'agent_a', 'agent_b')
+
+        Returns:
+            Colorama color name
+        """
+        default_colors = {'agent_a': 'CYAN', 'agent_b': 'YELLOW'}
+        return self.settings.get('display_colors', {}).get('agents', {}).get(
+            agent_id,
+            default_colors.get(agent_id, 'WHITE')
+        )
+
+    def set_agent_color(self, agent_id: str, color: str):
+        """
+        Set the display color for a specific agent.
+
+        Args:
+            agent_id: Agent identifier (e.g., 'agent_a', 'agent_b')
+            color: Colorama color name (e.g., 'CYAN', 'LIGHTYELLOW_EX')
+        """
+        if not self._validate_color(color):
+            raise ValueError(f"Invalid color name: {color}")
+
+        if 'display_colors' not in self.settings:
+            self.settings['display_colors'] = {}
+        if 'agents' not in self.settings['display_colors']:
+            self.settings['display_colors']['agents'] = {}
+
+        self.settings['display_colors']['agents'][agent_id] = color
+        self.save_settings()
+
+    def _validate_color(self, color: str) -> bool:
+        """
+        Validate that a color name exists in colorama.Fore.
+
+        Args:
+            color: Color name to validate
+
+        Returns:
+            True if valid, False otherwise
+        """
+        valid_colors = [
+            'BLACK', 'RED', 'GREEN', 'YELLOW', 'BLUE', 'MAGENTA', 'CYAN', 'WHITE',
+            'LIGHTBLACK_EX', 'LIGHTRED_EX', 'LIGHTGREEN_EX', 'LIGHTYELLOW_EX',
+            'LIGHTBLUE_EX', 'LIGHTMAGENTA_EX', 'LIGHTCYAN_EX', 'LIGHTWHITE_EX',
+            'RESET'
+        ]
+        return color.upper() in valid_colors
+
+    def get_available_colors(self) -> list:
+        """
+        Get list of available color names.
+
+        Returns:
+            List of tuples (color_name, display_name)
+        """
+        return [
+            ('BLACK', 'Black'),
+            ('RED', 'Red'),
+            ('GREEN', 'Green'),
+            ('YELLOW', 'Yellow'),
+            ('BLUE', 'Blue'),
+            ('MAGENTA', 'Magenta'),
+            ('CYAN', 'Cyan'),
+            ('WHITE', 'White'),
+            ('LIGHTBLACK_EX', 'Light Black (Gray)'),
+            ('LIGHTRED_EX', 'Light Red'),
+            ('LIGHTGREEN_EX', 'Light Green'),
+            ('LIGHTYELLOW_EX', 'Light Yellow'),
+            ('LIGHTBLUE_EX', 'Light Blue'),
+            ('LIGHTMAGENTA_EX', 'Light Magenta'),
+            ('LIGHTCYAN_EX', 'Light Cyan'),
+            ('LIGHTWHITE_EX', 'Light White (Bright)'),
+        ]
 
     def set_use_env_keys(self, use_env: bool):
         """Set whether to prefer environment variables for API keys."""

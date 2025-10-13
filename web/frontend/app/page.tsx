@@ -155,6 +155,8 @@ export default function DashboardPage() {
                         className={`px-3 py-1 rounded-full text-xs font-medium ${
                           conv.status === 'completed'
                             ? 'bg-green-900/50 text-green-300 border border-green-700'
+                            : conv.status === 'paused'
+                            ? 'bg-blue-900/50 text-blue-300 border border-blue-700'
                             : 'bg-yellow-900/50 text-yellow-300 border border-yellow-700'
                         }`}
                       >

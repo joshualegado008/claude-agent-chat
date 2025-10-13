@@ -31,6 +31,7 @@ export interface ConversationState {
   currentThinking: string;
   currentResponse: string;
   currentStats: TokenStats | null;
+  currentToolUses: string[]; // Tool uses for current turn
 
   // Metadata
   metadata: ConversationMetadata | null;
@@ -45,6 +46,7 @@ export interface UseWebSocketResult {
   resume: () => void;
   stop: () => void;
   requestMetadata: () => void;
+  inject: (content: string) => void;
 }
 
 export function useWebSocket(conversationId: string): UseWebSocketResult {
@@ -68,6 +70,7 @@ export function useWebSocket(conversationId: string): UseWebSocketResult {
     currentThinking: '',
     currentResponse: '',
     currentStats: null,
+    currentToolUses: [],
     metadata: null,
   });
 
@@ -94,6 +97,12 @@ export function useWebSocket(conversationId: string): UseWebSocketResult {
   const requestMetadata = useCallback(() => {
     sendCommand('get_metadata');
   }, [sendCommand]);
+
+  const inject = useCallback((content: string) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ command: 'inject', content }));
+    }
+  }, []);
 
   const handleMessage = useCallback((event: MessageEvent) => {
     try {
@@ -122,6 +131,7 @@ export function useWebSocket(conversationId: string): UseWebSocketResult {
             currentThinking: '',
             currentResponse: '',
             currentStats: null,
+            currentToolUses: [],
           }));
           break;
 
@@ -202,6 +212,20 @@ export function useWebSocket(conversationId: string): UseWebSocketResult {
 
         case 'metadata_unavailable':
           console.log('Metadata not available:', message.message);
+          break;
+
+        case 'tool_use':
+          // Agent is using a tool (e.g., fetching a URL)
+          setState(prev => ({
+            ...prev,
+            currentToolUses: [...prev.currentToolUses, message.message || ''],
+          }));
+          break;
+
+        case 'injected':
+          // Content was successfully injected
+          console.log('Content injected successfully:', message.message);
+          // Optionally show a success notification here
           break;
 
         case 'error':
@@ -286,5 +310,6 @@ export function useWebSocket(conversationId: string): UseWebSocketResult {
     resume,
     stop,
     requestMetadata,
+    inject,
   };
 }

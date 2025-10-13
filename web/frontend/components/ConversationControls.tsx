@@ -2,7 +2,7 @@
  * Conversation Controls - Pause, Resume, Stop buttons
  */
 
-import { Pause, Play, Square, Info } from 'lucide-react';
+import { Pause, Play, Square, Info, MessageSquarePlus } from 'lucide-react';
 
 interface ConversationControlsProps {
   isPaused: boolean;
@@ -12,6 +12,7 @@ interface ConversationControlsProps {
   onResume: () => void;
   onStop: () => void;
   onShowDashboard: () => void;
+  onShowInject?: () => void;
 }
 
 export function ConversationControls({
@@ -22,6 +23,7 @@ export function ConversationControls({
   onResume,
   onStop,
   onShowDashboard,
+  onShowInject,
 }: ConversationControlsProps) {
   if (isComplete) {
     return (
@@ -76,14 +78,27 @@ export function ConversationControls({
           </button>
         </div>
 
-        {/* Dashboard Button */}
-        <button
-          onClick={onShowDashboard}
-          className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-        >
-          <Info className="w-4 h-4" />
-          <span>View Insights</span>
-        </button>
+        <div className="flex items-center space-x-3">
+          {/* Inject Content Button - Only show if paused or handler provided */}
+          {onShowInject && isPaused && (
+            <button
+              onClick={onShowInject}
+              className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors"
+            >
+              <MessageSquarePlus className="w-4 h-4" />
+              <span>Inject Content</span>
+            </button>
+          )}
+
+          {/* Dashboard Button */}
+          <button
+            onClick={onShowDashboard}
+            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+          >
+            <Info className="w-4 h-4" />
+            <span>View Insights</span>
+          </button>
+        </div>
       </div>
 
       {isPaused && (

@@ -2,7 +2,7 @@
 Agent Runner - Manages individual Claude agent instances via Anthropic API
 
 This refactored version uses the Anthropic API directly instead of subprocess calls,
-creating truly independent agent instances with their own conversation contexts.
+creating truly independent Claude instances with their own conversation contexts.
 """
 
 import os
@@ -12,6 +12,7 @@ from typing import List, Dict, Optional
 from conversation_manager import Message
 from dotenv import load_dotenv
 from settings_manager import get_settings
+import web_tools
 
 # Load environment variables from .env file
 load_dotenv()
@@ -230,7 +231,7 @@ class AgentRunner:
         thinking_budget: int = 5000
     ):
         """
-        Send a message to an agent with streaming and optional extended thinking.
+        Send a message to an agent with streaming, optional extended thinking, and tool support.
 
         Args:
             agent_id: The agent identifier (e.g., 'agent_a', 'agent_b')
@@ -241,11 +242,15 @@ class AgentRunner:
 
         Yields:
             Tuples of (content_type, chunk, token_info) where:
-            - content_type: 'thinking' or 'text'
+            - content_type: 'thinking', 'text', 'tool_use', or 'complete'
             - chunk: Text chunk to display
             - token_info: Dict with token usage info (only on final chunk)
         """
         try:
+            # Load web browsing config
+            web_config = web_tools.get_web_config(self.config)
+            tools_enabled = web_config.get('enabled', False)
+
             # Build conversation history for this agent
             messages = self._build_messages(context_messages, new_message)
 
@@ -268,73 +273,141 @@ class AgentRunner:
                     'budget_tokens': thinking_budget
                 }
 
-            # Stream the response
-            thinking_text = ""
-            response_text = ""
-            input_tokens = 0
-            output_tokens = 0
-            thinking_tokens = 0  # Track thinking tokens separately
+            # Get tool schemas if enabled
+            tools = None
+            if tools_enabled:
+                tools = web_tools.get_web_tools_schema()
 
-            with self.client.messages.stream(
-                model=model,
-                max_tokens=max_tokens,
-                temperature=temperature,
-                system=system_prompt,
-                messages=messages,
-                thinking=thinking_config if thinking_config else None
-            ) as stream:
-                for event in stream:
-                    # Handle thinking blocks
-                    if hasattr(event, 'type') and event.type == 'content_block_start':
-                        if hasattr(event, 'content_block') and hasattr(event.content_block, 'type'):
-                            if event.content_block.type == 'thinking':
-                                # Signal start of thinking
-                                yield ('thinking_start', '', {})
+            # Tool use loop - keep calling until we get a final response
+            all_thinking_text = ""
+            all_response_text = ""
+            total_input_tokens = 0
+            total_output_tokens = 0
+            total_thinking_tokens = 0
+            tool_use_count = 0
+            max_tool_uses = web_config.get('max_urls_per_turn', 3)
 
-                    elif hasattr(event, 'type') and event.type == 'content_block_delta':
-                        if hasattr(event, 'delta'):
-                            if hasattr(event.delta, 'type'):
-                                if event.delta.type == 'thinking_delta':
-                                    # Yield thinking chunks
-                                    if hasattr(event.delta, 'thinking'):
-                                        thinking_text += event.delta.thinking
-                                        yield ('thinking', event.delta.thinking, {})
-                                elif event.delta.type == 'text_delta':
-                                    # Yield text chunks
-                                    if hasattr(event.delta, 'text'):
-                                        response_text += event.delta.text
-                                        yield ('text', event.delta.text, {})
+            while True:
+                thinking_text = ""
+                response_text = ""
+                tool_uses = []
 
-                # Get final message with token usage
-                final_message = stream.get_final_message()
-                if final_message and hasattr(final_message, 'usage'):
-                    input_tokens = final_message.usage.input_tokens
-                    output_tokens = final_message.usage.output_tokens
+                # Make streaming API call
+                with self.client.messages.stream(
+                    model=model,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    system=system_prompt,
+                    messages=messages,
+                    tools=tools,
+                    thinking=thinking_config if thinking_config else None
+                ) as stream:
+                    for event in stream:
+                        # Handle thinking blocks
+                        if hasattr(event, 'type') and event.type == 'content_block_start':
+                            if hasattr(event, 'content_block') and hasattr(event.content_block, 'type'):
+                                if event.content_block.type == 'thinking':
+                                    # Signal start of thinking
+                                    yield ('thinking_start', '', {})
+
+                        elif hasattr(event, 'type') and event.type == 'content_block_delta':
+                            if hasattr(event, 'delta'):
+                                if hasattr(event.delta, 'type'):
+                                    if event.delta.type == 'thinking_delta':
+                                        # Yield thinking chunks
+                                        if hasattr(event.delta, 'thinking'):
+                                            thinking_text += event.delta.thinking
+                                            yield ('thinking', event.delta.thinking, {})
+                                    elif event.delta.type == 'text_delta':
+                                        # Yield text chunks
+                                        if hasattr(event.delta, 'text'):
+                                            response_text += event.delta.text
+                                            yield ('text', event.delta.text, {})
+
+                    # Get final message with token usage and tool uses
+                    final_message = stream.get_final_message()
+                    if final_message:
+                        if hasattr(final_message, 'usage'):
+                            total_input_tokens += final_message.usage.input_tokens
+                            total_output_tokens += final_message.usage.output_tokens
+
+                        # Check for tool uses
+                        for content_block in final_message.content:
+                            if content_block.type == 'tool_use':
+                                tool_uses.append(content_block)
+
+                # Accumulate text from this turn
+                all_thinking_text += thinking_text
+                all_response_text += response_text
+
+                # If no tool uses, we're done
+                if not tool_uses:
+                    break
+
+                # Check tool use limit
+                if tool_use_count >= max_tool_uses:
+                    print(f"⚠️  Reached maximum tool uses per turn ({max_tool_uses})")
+                    break
+
+                # Execute tools and prepare next message
+                tool_results = []
+                for tool_use in tool_uses:
+                    tool_use_count += 1
+                    tool_name = tool_use.name
+                    tool_input = tool_use.input
+                    tool_id = tool_use.id
+
+                    # Notify about tool use
+                    yield ('tool_use', f"Fetching: {tool_input.get('url', 'unknown')}", {})
+
+                    # Execute the tool
+                    tool_result = web_tools.execute_tool(tool_name, tool_input, web_config)
+
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": tool_id,
+                        "content": tool_result
+                    })
+
+                # Add assistant message with tool use
+                messages.append({
+                    "role": "assistant",
+                    "content": final_message.content
+                })
+
+                # Add tool results as user message
+                messages.append({
+                    "role": "user",
+                    "content": tool_results
+                })
+
+                # Continue loop to get agent's response after tool execution
 
             # Estimate thinking tokens from thinking text if not provided by API
-            # Rough estimate: 1 token ≈ 4 characters
-            if thinking_text and thinking_tokens == 0:
-                thinking_tokens = len(thinking_text) // 4
+            if all_thinking_text and total_thinking_tokens == 0:
+                total_thinking_tokens = len(all_thinking_text) // 4
 
             # Yield final token info with enhanced metadata
             token_info = {
-                'input_tokens': input_tokens,
-                'output_tokens': output_tokens,
-                'thinking_tokens': thinking_tokens,
-                'total_tokens': input_tokens + output_tokens,
-                'thinking_text': thinking_text,
-                'response_text': response_text,
+                'input_tokens': total_input_tokens,
+                'output_tokens': total_output_tokens,
+                'thinking_tokens': total_thinking_tokens,
+                'total_tokens': total_input_tokens + total_output_tokens,
+                'thinking_text': all_thinking_text,
+                'response_text': all_response_text,
                 # Add model configuration
                 'model_name': model,
                 'temperature': temperature,
-                'max_tokens': max_tokens
+                'max_tokens': max_tokens,
+                # Add tool usage stats
+                'tool_uses': tool_use_count
             }
             yield ('complete', '', token_info)
 
             # Log token usage if debug enabled
             if self.config.get('logging', {}).get('debug', False):
                 print(f"[DEBUG] Agent {agent_id} tokens: "
-                      f"in={input_tokens} out={output_tokens}")
+                      f"in={total_input_tokens} out={total_output_tokens} tools={tool_use_count}")
 
         except anthropic.APIError as e:
             error_msg = f"API Error for agent {agent_id}: {str(e)}"

@@ -13,11 +13,11 @@ CREATE TABLE IF NOT EXISTS conversations (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     total_turns INTEGER DEFAULT 0,
     total_tokens INTEGER DEFAULT 0,
-    status VARCHAR(20) DEFAULT 'active', -- active, completed, archived
+    status VARCHAR(20) DEFAULT 'active', -- active, paused, completed, archived
     tags TEXT[] DEFAULT '{}',
 
     -- Indexes for common queries
-    CONSTRAINT valid_status CHECK (status IN ('active', 'completed', 'archived'))
+    CONSTRAINT valid_status CHECK (status IN ('active', 'paused', 'completed', 'archived'))
 );
 
 -- Exchanges table: stores individual agent messages

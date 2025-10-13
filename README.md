@@ -69,13 +69,18 @@ Perfect for system engineers who want complete transparency into token usage, co
 - **FastAPI Backend**: RESTful API + WebSocket support for live conversations
 - **Dual Interface System**: Terminal and web work simultaneously, sharing the same database
 - **Real-Time Streaming**: Watch agent responses appear as they're generated
-- **Continue Conversations**: Resume any active conversation (< 20 turns) from the web UI
+- **User Content Injection**: Pause conversations and inject custom user content mid-conversation (like terminal Ctrl-C)
+- **Tool Use Visibility**: See when agents use web browsing tools (fetch_url) with expandable details
+- **Conversation State Management**: Clear distinction between paused (resumable), active, and completed states
+- **Continue Conversations**: Resume any active or paused conversation (< 20 turns) from the web UI
 - **Browse History**: View all completed conversations with full exchanges and thinking content
 - **Permanent Statistics Display**: Token usage and cost tracking for ALL conversations (live and completed)
   - Header stats always visible during viewing
   - Detailed breakdown panel with per-agent analytics
   - Historical cost calculation using current model pricing
 - **Responsive Design**: Works on desktop and mobile with Tailwind CSS
+
+👉 **[See CONVERSATION_STATES.md for state management details](CONVERSATION_STATES.md)**
 
 **Quick Start Web Interface:**
 ```bash
@@ -446,17 +451,19 @@ claude-agent-chat/
 │   │   │   └── conversation/[id]/page.tsx # Conversation viewer
 │   │   ├── components/                   # React components
 │   │   │   ├── AgentMessage.tsx          # Message display with thinking
-│   │   │   ├── ConversationControls.tsx  # Pause/Resume/Stop controls
+│   │   │   ├── ConversationControls.tsx  # Pause/Resume/Stop/Inject controls
+│   │   │   ├── InjectContentModal.tsx    # NEW: User content injection modal
+│   │   │   ├── ToolUseMessage.tsx        # NEW: Tool use display
 │   │   │   └── InterruptDashboard.tsx    # Metadata dashboard
 │   │   ├── hooks/                        # Custom React hooks
-│   │   │   ├── useWebSocket.ts           # WebSocket management
+│   │   │   ├── useWebSocket.ts           # WebSocket management (with inject)
 │   │   │   └── useConversations.ts       # Data fetching
 │   │   └── lib/                          # Utilities
 │   │   │   └── costCalculator.ts         # NEW: Token cost calculation
 │   ├── backend/                          # FastAPI backend
 │   │   ├── api.py                        # REST + WebSocket endpoints
 │   │   ├── bridge.py                     # Python module bridge
-│   │   └── websocket_handler.py          # WebSocket streaming logic
+│   │   └── websocket_handler.py          # WebSocket streaming + state logic
 │   └── start-web.sh                      # Service launcher
 ├── coordinator.py                        # Original orchestration script
 ├── coordinator_with_memory.py            # NEW: With database persistence
@@ -471,12 +478,16 @@ claude-agent-chat/
 ├── metadata_extractor.py               # NEW: AI-powered conversation analysis
 ├── terminal_dashboard.py               # NEW: Rich metadata visualization
 ├── config.yaml                         # Configuration file
+├── web_tools.py                        # NEW: Web browsing tools for agents
 ├── docker-compose.yml                  # NEW: Database services setup
 ├── init.sql                           # NEW: PostgreSQL schema
 ├── metadata_schema.sql                # NEW: Metadata tables
+├── migrations/                        # NEW: Database migrations
+│   └── 002_add_paused_status.sql      # Add 'paused' status
 ├── fix_conversation_status.sql        # NEW: Database maintenance
 ├── FEATURES.md                        # Extended thinking & streaming guide
 ├── SETUP_DATABASE.md                  # NEW: Database setup guide
+├── CONVERSATION_STATES.md             # NEW: Conversation state lifecycle guide
 ├── CHANGELOG.md                       # NEW: Version history
 ├── .env.example                       # Environment variable template
 ├── .env                              # Your API key (create from .env.example)

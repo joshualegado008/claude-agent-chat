@@ -286,6 +286,15 @@ class ConversationStreamHandler:
                             "chunk": chunk
                         })
 
+                    elif content_type == 'tool_use':
+                        # Agent is using a tool (e.g., fetching a URL)
+                        await websocket.send_json({
+                            "type": "tool_use",
+                            "turn": turn,
+                            "agent_name": current_agent.agent_name,
+                            "message": chunk
+                        })
+
                     elif content_type == 'complete':
                         input_tokens = info.get('input_tokens', 0)
                         output_tokens = info.get('output_tokens', 0)
@@ -413,6 +422,9 @@ Please respond to continue the discussion."""
 
                 if command == 'pause':
                     self.is_paused = True
+                    # Update status to 'paused' in database
+                    if self.conv_manager:
+                        self.conv_manager.finalize_conversation(status='paused')
                     await websocket.send_json({
                         "type": "paused",
                         "message": "Conversation paused"
@@ -420,6 +432,9 @@ Please respond to continue the discussion."""
 
                 elif command == 'resume':
                     self.is_paused = False
+                    # Update status back to 'active' in database
+                    if self.conv_manager:
+                        self.conv_manager.finalize_conversation(status='active')
                     await websocket.send_json({
                         "type": "resumed",
                         "message": "Conversation resumed"
@@ -428,11 +443,50 @@ Please respond to continue the discussion."""
                 elif command == 'stop':
                     self.should_stop = True
                     self.is_paused = False
+                    # Immediately finalize conversation as completed (user explicitly stopped)
+                    if self.conv_manager:
+                        self.conv_manager.finalize_conversation(status='completed')
                     await websocket.send_json({
                         "type": "stopped",
                         "message": "Conversation stopped"
                     })
                     break
+
+                elif command == 'inject':
+                    # Inject user content into the conversation
+                    content = message.get('content', '').strip()
+
+                    if not content:
+                        await websocket.send_json({
+                            "type": "error",
+                            "message": "Cannot inject empty content"
+                        })
+                        continue
+
+                    if self.conv_manager:
+                        try:
+                            # Use the existing inject_user_content method from conversation_manager
+                            self.conv_manager.inject_user_content(content)
+
+                            print(f"💬 User content injected: {content[:100]}...")
+
+                            await websocket.send_json({
+                                "type": "injected",
+                                "content": content,
+                                "turn": self.conv_manager.current_turn,
+                                "message": "Content injected successfully"
+                            })
+                        except Exception as e:
+                            print(f"   ❌ Error injecting content: {e}")
+                            await websocket.send_json({
+                                "type": "error",
+                                "message": f"Failed to inject content: {str(e)}"
+                            })
+                    else:
+                        await websocket.send_json({
+                            "type": "error",
+                            "message": "Conversation manager not available"
+                        })
 
                 elif command == 'get_metadata':
                     # Extract rich metadata if available
@@ -487,7 +541,11 @@ Please respond to continue the discussion."""
                 # Conversation completed by reaching turn limit
                 print(f"✅ Cleanup: Conversation reached {self.conv_manager.current_turn} turns (max: {max_turns}), marking as completed")
                 self.conv_manager.finalize_conversation(status='completed')
+            elif self.is_paused:
+                # User explicitly paused before disconnect
+                print(f"⏸️  Cleanup: Conversation was paused at turn {self.conv_manager.current_turn}, keeping status as paused")
+                # Don't change status - it's already 'paused' from the pause command
             else:
-                # Save progress if interrupted mid-conversation
-                print(f"💾 Cleanup: Conversation interrupted at turn {self.conv_manager.current_turn}, marking as active")
-                self.conv_manager.finalize_conversation(status='active')
+                # WebSocket disconnected mid-conversation (browser closed, network issue, etc.)
+                print(f"💾 Cleanup: Conversation interrupted at turn {self.conv_manager.current_turn}, marking as paused")
+                self.conv_manager.finalize_conversation(status='paused')

@@ -86,12 +86,14 @@ class ConversationInterruptHandler:
         current_turn: int,
         total_tokens: int,
         total_cost: float
-    ) -> str:
+    ) -> tuple[str, Optional[str]]:
         """
         Show interrupt menu and handle user choice.
 
         Returns:
-            'resume' or 'stop'
+            Tuple of (action, injected_content) where:
+            - action: 'resume', 'stop', or 'inject'
+            - injected_content: The injected text if action is 'inject', None otherwise
         """
         # Temporarily restore default Ctrl-C behavior for menu
         signal.signal(signal.SIGINT, signal.SIG_DFL)
@@ -103,34 +105,44 @@ class ConversationInterruptHandler:
             print("=" * 60)
             print("\nWhat would you like to do?\n")
             print("  1. 📊 View Conversation Context")
-            print("  2. ▶️  Resume Conversation")
-            print("  3. ⏹️  Stop Conversation")
+            print("  2. 💬 Inject content into conversation")
+            print("  3. ▶️  Resume Conversation")
+            print("  4. ⏹️  Stop Conversation")
             print()
 
-            choice = input("Enter your choice (1-3): ").strip()
+            choice = input("Enter your choice (1-4): ").strip()
 
             if choice == '1':
                 # View context - extract fresh metadata if available
                 self.extract_metadata_if_available(conv_manager, current_turn)
                 self._show_conversation_context(conv_manager, current_turn, total_tokens, total_cost)
                 input("\nPress Enter to continue...")
-                return 'resume'
+                return ('resume', None)
 
-            elif choice == '2' or not choice:
+            elif choice == '2':
+                # Inject content
+                injected_content = self.handle_user_injection()
+                if injected_content:
+                    return ('inject', injected_content)
+                else:
+                    # Injection was cancelled, show menu again
+                    return self.show_interrupt_menu(conv_manager, current_turn, total_tokens, total_cost)
+
+            elif choice == '3' or not choice:
                 # Resume
                 print("\n▶️  Resuming conversation...")
-                return 'resume'
+                return ('resume', None)
 
-            elif choice == '3':
+            elif choice == '4':
                 # Stop
                 confirm = input("\n⚠️  Stop conversation and save progress? [y/N]: ").strip().lower()
                 if confirm == 'y':
-                    return 'stop'
-                return 'resume'
+                    return ('stop', None)
+                return ('resume', None)
 
             else:
                 print("\n❌ Invalid choice. Resuming conversation...")
-                return 'resume'
+                return ('resume', None)
 
         finally:
             # Restore our custom SIGINT handler
@@ -196,6 +208,70 @@ class ConversationInterruptHandler:
         # Show hint if rich context is not available
         if not self.current_metadata:
             print("\n💡 Tip: Configure OpenAI API key in Settings for AI-powered context analysis")
+
+    def handle_user_injection(self) -> Optional[str]:
+        """
+        Handle user content injection - prompt for free-form text input.
+
+        Returns:
+            The injected content, or None if cancelled
+        """
+        print("\n" + "="*60)
+        print("💬 INJECT CONTENT INTO CONVERSATION")
+        print("="*60)
+        print("\nEnter content to inject (text, question, URL, etc.)")
+        print("This can be:")
+        print("  • A question or statement")
+        print("  • A new theory or idea to explore")
+        print("  • A URL for agents to research (they have fetch_url tool)")
+        print("  • Any other material to incorporate")
+        print("\nPress Enter twice when done, or Ctrl-C to cancel\n")
+
+        lines = []
+        try:
+            while True:
+                line = input()
+                if not line and lines:
+                    # Empty line and we have content - done
+                    break
+                lines.append(line)
+        except KeyboardInterrupt:
+            print("\n\n❌ Injection cancelled.")
+            return None
+
+        content = "\n".join(lines).strip()
+
+        if not content:
+            print("\n❌ No content provided. Injection cancelled.")
+            return None
+
+        # Check for URLs
+        import re
+        url_pattern = r'https?://[^\s]+'
+        urls = re.findall(url_pattern, content)
+
+        # Show preview
+        print("\n" + "-"*60)
+        print("PREVIEW:")
+        print("-"*60)
+        preview = content[:200] + "..." if len(content) > 200 else content
+        print(preview)
+
+        if urls:
+            print(f"\n💡 Detected {len(urls)} URL(s). Agents can use their fetch_url tool to read:")
+            for url in urls[:3]:  # Show first 3 URLs
+                print(f"   • {url}")
+
+        print("-"*60)
+
+        # Confirm
+        confirm = input("\n✓ Inject this content? [Y/n]: ").strip().lower()
+
+        if confirm and confirm != 'y':
+            print("\n❌ Injection cancelled.")
+            return None
+
+        return content
 
 
 def main():
@@ -458,13 +534,31 @@ Please respond considering both the previous context and this new direction."""
         for turn in range(start_turn, start_turn + config['max_turns']):
             # Check for interrupt before starting turn
             if interrupt_handler.check_interrupt():
-                action = interrupt_handler.show_interrupt_menu(
+                action, injected_content = interrupt_handler.show_interrupt_menu(
                     conv_manager, turn, total_tokens, total_cost
                 )
                 if action == 'stop':
                     # User chose to stop - break out of conversation loop
                     break
-                # Otherwise continue with this turn
+                elif action == 'inject':
+                    # User injected content
+                    print(f"\n{'='*60}")
+                    print("💬 CONTENT INJECTION")
+                    print(f"{'='*60}")
+
+                    # Add injection to conversation manager
+                    result = conv_manager.inject_user_content(injected_content)
+                    print(result)
+
+                    # Update the context to include the injection
+                    context = conv_manager.get_context_for_continuation(window_size=5)
+                    current_message = f"""{context}
+
+Please respond to continue the discussion."""
+
+                    print(f"\n✅ Next agent will see and incorporate this content...")
+                    print(f"{'='*60}\n")
+                # Continue with this turn (whether resumed or after injection)
 
             current_agent = agents[current_agent_idx]
 
@@ -627,8 +721,8 @@ Please respond to continue the discussion."""
             cost_str = CostCalculator.format_cost(total_cost)
             print(f"💵 Total cost: {cost_str}")
 
-        # Save interrupted conversation
-        conv_manager.finalize_conversation(status='active')
+        # Save interrupted conversation as paused
+        conv_manager.finalize_conversation(status='paused')
         print("\n✅ Progress saved. You can continue this conversation later.")
 
         input("\nPress Enter to return to menu...")

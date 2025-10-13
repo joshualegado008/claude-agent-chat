@@ -132,6 +132,51 @@ class PersistentConversationManager:
 
         self.current_turn += 1
 
+    def inject_user_content(self, content: str) -> str:
+        """
+        Inject user-provided content into the conversation.
+
+        This allows users to add new material (text, questions, URLs) mid-conversation
+        that agents will incorporate into their ongoing discussion.
+
+        Args:
+            content: The user's injected content
+
+        Returns:
+            Formatted message confirming the injection
+        """
+        if not self.conversation_id:
+            raise ValueError("No active conversation. Call start_new_conversation() first.")
+
+        # Create a special USER exchange
+        # Use current turn number but mark as USER to distinguish from agent exchanges
+        exchange = {
+            'turn_number': self.current_turn,
+            'agent_name': 'USER',
+            'thinking_content': None,
+            'response_content': content,
+            'tokens_used': 0,  # User injections don't cost tokens
+            'created_at': datetime.now().isoformat()
+        }
+
+        self.exchanges.append(exchange)
+
+        # Persist to database
+        self.db.add_exchange(
+            conversation_id=self.conversation_id,
+            turn_number=self.current_turn,
+            agent_name='USER',
+            thinking_content=None,
+            response_content=content,
+            tokens_used=0
+        )
+
+        # Increment turn counter so next agent gets a unique turn number
+        injection_turn = self.current_turn
+        self.current_turn += 1
+
+        return f"✅ User content injected at turn {injection_turn}"
+
     def get_context_for_continuation(
         self,
         window_size: int = 5
@@ -139,6 +184,8 @@ class PersistentConversationManager:
         """
         Get conversation context for continuing a previous conversation.
         Returns recent exchanges formatted for the prompt.
+
+        Handles USER injections by highlighting them prominently in the context.
         """
         if not self.exchanges:
             return self.metadata.get('initial_prompt', '')
@@ -152,12 +199,39 @@ class PersistentConversationManager:
             f"\nRecent exchanges:\n"
         ]
 
-        for ex in recent:
-            context_parts.append(
-                f"Turn {ex['turn_number']} - {ex['agent_name']}: {ex['response_content'][:200]}..."
-            )
+        # Track if there are any USER injections
+        has_user_injection = False
 
-        context_parts.append("\nContinue the discussion from here.")
+        for ex in recent:
+            agent_name = ex['agent_name']
+
+            if agent_name == 'USER':
+                # Highlight user injections prominently
+                has_user_injection = True
+                context_parts.append(
+                    f"\n{'='*60}\n"
+                    f"🎯 USER INJECTION (at turn {ex['turn_number']}):\n"
+                    f"{ex['response_content']}\n"
+                    f"{'='*60}\n"
+                )
+            else:
+                # Regular agent exchange
+                content_preview = ex['response_content'][:200]
+                if len(ex['response_content']) > 200:
+                    content_preview += "..."
+                context_parts.append(
+                    f"Turn {ex['turn_number']} - {agent_name}: {content_preview}"
+                )
+
+        # Add instructions based on whether there's a user injection
+        if has_user_injection:
+            context_parts.append(
+                "\nThe user has added new material to the conversation. Please acknowledge "
+                "and incorporate this into your response while maintaining the flow of "
+                "the existing discussion."
+            )
+        else:
+            context_parts.append("\nContinue the discussion from here.")
 
         return "\n".join(context_parts)
 

@@ -14,6 +14,7 @@ import sys
 from typing import Dict, Optional
 from datetime import datetime
 from cost_calculator import CostCalculator
+from settings_manager import get_settings
 
 try:
     from colorama import init, Fore, Back, Style
@@ -24,6 +25,7 @@ except ImportError:
     # Fallback if colorama not installed
     class Fore:
         CYAN = YELLOW = GREEN = RED = MAGENTA = BLUE = WHITE = RESET = ""
+        LIGHTYELLOW_EX = LIGHTGREEN_EX = LIGHTCYAN_EX = LIGHTBLUE_EX = ""
     class Style:
         BRIGHT = DIM = RESET_ALL = ""
 
@@ -41,10 +43,20 @@ class DisplayFormatter:
         self.show_timestamps = self.display_config.get('show_timestamps', True)
         self.clear_screen = self.display_config.get('clear_screen', False)
 
-        # Agent color mapping
+        # Load settings for color preferences
+        settings = get_settings()
+
+        # Thinking color - from settings, with fallback to default
+        thinking_color_name = settings.get_thinking_color()
+        self.thinking_color = getattr(Fore, thinking_color_name, Fore.LIGHTYELLOW_EX)
+
+        # Agent color mapping - prioritize settings over config.yaml
         self.agent_colors = {}
         for agent_id, agent_info in self.agents_config.items():
-            color_name = agent_info.get('color', 'white').upper()
+            # Try settings first, then config.yaml, then default
+            color_name = settings.get_agent_color(agent_id)
+            if not color_name:
+                color_name = agent_info.get('color', 'white').upper()
             self.agent_colors[agent_id] = getattr(Fore, color_name, Fore.WHITE)
 
     def clear(self):
@@ -226,22 +238,22 @@ class DisplayFormatter:
     def print_thinking_header(self, agent_name: str):
         """Print header for thinking section"""
         if self.use_colors:
-            print(f"\n{Fore.YELLOW}{Style.DIM}💭 {agent_name} is thinking...{Style.RESET_ALL}")
+            print(f"\n{self.thinking_color}💭 {agent_name} is thinking...{Style.RESET_ALL}")
         else:
             print(f"\n💭 {agent_name} is thinking...")
-        print(f"{Fore.YELLOW}{Style.DIM}{'─' * 60}{Style.RESET_ALL}")
+        print(f"{self.thinking_color}{'─' * 60}{Style.RESET_ALL}")
 
     def print_thinking_chunk(self, chunk: str):
         """Print a chunk of thinking content in real-time"""
         if self.use_colors:
-            print(f"{Fore.YELLOW}{Style.DIM}{chunk}{Style.RESET_ALL}", end='', flush=True)
+            print(f"{self.thinking_color}{chunk}{Style.RESET_ALL}", end='', flush=True)
         else:
             print(chunk, end='', flush=True)
 
     def print_thinking_end(self):
         """Print separator at end of thinking"""
         if self.use_colors:
-            print(f"\n{Fore.YELLOW}{Style.DIM}{'─' * 60}{Style.RESET_ALL}")
+            print(f"\n{self.thinking_color}{'─' * 60}{Style.RESET_ALL}")
         else:
             print(f"\n{'─' * 60}")
 
@@ -440,7 +452,11 @@ class DisplayFormatter:
         if thinking_tokens > 0:
             thinking_cost_str = CostCalculator.format_cost(turn_cost * (thinking_tokens / turn_tokens)) if turn_tokens > 0 else "$0.00"
             if COLORS_AVAILABLE:
-                print(f"│   {Fore.YELLOW}Thinking:{Style.RESET_ALL} {thinking_tokens:>5,} ({thinking_cost_str}) 💭 extended reasoning{' ' * 13}│")
+                # Load thinking color from settings
+                settings = get_settings()
+                thinking_color_name = settings.get_thinking_color()
+                thinking_color = getattr(Fore, thinking_color_name, Fore.LIGHTYELLOW_EX)
+                print(f"│   {thinking_color}Thinking:{Style.RESET_ALL} {thinking_tokens:>5,} ({thinking_cost_str}) 💭 extended reasoning{' ' * 13}│")
             else:
                 print(f"│   Thinking: {thinking_tokens:>5,} ({thinking_cost_str}) 💭 extended reasoning│")
 
@@ -516,6 +532,11 @@ class DisplayFormatter:
         temperature = 1.0
         max_tokens = 0
 
+        # Load thinking color from settings for static method
+        settings = get_settings()
+        thinking_color_name = settings.get_thinking_color()
+        thinking_color = getattr(Fore, thinking_color_name, Fore.LIGHTYELLOW_EX)
+
         try:
             # Get streaming response from agent
             stream = agent.send_message_streaming(
@@ -531,8 +552,8 @@ class DisplayFormatter:
                     if show_thinking:
                         has_thinking = True
                         if COLORS_AVAILABLE:
-                            print(f"\n{Fore.YELLOW}{Style.DIM}💭 {agent.agent_name} is thinking...{Style.RESET_ALL}")
-                            print(f"{Fore.YELLOW}{Style.DIM}{'─' * 60}{Style.RESET_ALL}")
+                            print(f"\n{thinking_color}💭 {agent.agent_name} is thinking...{Style.RESET_ALL}")
+                            print(f"{thinking_color}{'─' * 60}{Style.RESET_ALL}")
                         else:
                             print(f"\n💭 {agent.agent_name} is thinking...")
                             print('─' * 60)
@@ -542,7 +563,7 @@ class DisplayFormatter:
                     if show_thinking:
                         thinking_text += chunk
                         if COLORS_AVAILABLE:
-                            print(f"{Fore.YELLOW}{Style.DIM}{chunk}{Style.RESET_ALL}", end='', flush=True)
+                            print(f"{thinking_color}{chunk}{Style.RESET_ALL}", end='', flush=True)
                         else:
                             print(chunk, end='', flush=True)
 
@@ -551,7 +572,7 @@ class DisplayFormatter:
                     if not response_text:
                         if has_thinking and show_thinking:
                             if COLORS_AVAILABLE:
-                                print(f"\n{Fore.YELLOW}{Style.DIM}{'─' * 60}{Style.RESET_ALL}")
+                                print(f"\n{thinking_color}{'─' * 60}{Style.RESET_ALL}")
                             else:
                                 print(f"\n{'─' * 60}")
 

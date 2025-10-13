@@ -319,28 +319,31 @@ class ConversationMenu:
             print("\nWhat would you like to configure?\n")
             print("  1. 🔑 Configure API Keys")
             print("  2. 🤖 Select Models for Agents")
-            print("  3. 👁️  View Current Configuration")
-            print("  4. 🧪 Test API Connections")
-            print("  5. 🔧 Run Setup Wizard")
-            print("  6. ◀️  Back to Main Menu")
+            print("  3. 🎨 Customize Display Colors")
+            print("  4. 👁️  View Current Configuration")
+            print("  5. 🧪 Test API Connections")
+            print("  6. 🔧 Run Setup Wizard")
+            print("  7. ◀️  Back to Main Menu")
 
-            choice = input("\nEnter your choice (1-6): ").strip()
+            choice = input("\nEnter your choice (1-7): ").strip()
 
             if choice == '1':
                 self._configure_api_keys(settings)
             elif choice == '2':
                 self._configure_agent_models(settings)
             elif choice == '3':
+                self._configure_colors(settings)
+            elif choice == '4':
                 settings.display_current_settings()
                 input("\nPress Enter to continue...")
-            elif choice == '4':
-                self._test_api_connections(settings)
             elif choice == '5':
-                settings.interactive_setup()
+                self._test_api_connections(settings)
             elif choice == '6':
+                settings.interactive_setup()
+            elif choice == '7':
                 break
             else:
-                print("\n❌ Invalid choice. Please enter 1-6.")
+                print("\n❌ Invalid choice. Please enter 1-7.")
 
     def _configure_api_keys(self, settings):
         """Configure API keys."""
@@ -448,6 +451,121 @@ class ConversationMenu:
                 print("❌ OpenAI API: Failed")
         else:
             print("⚠️  OpenAI API: Not configured (optional)")
+
+        input("\nPress Enter to continue...")
+
+    def _configure_colors(self, settings):
+        """Configure display colors for thinking and agents."""
+        try:
+            from colorama import Fore, Style
+            colors_available = True
+        except ImportError:
+            colors_available = False
+            print("\n❌ Colorama not available. Colors cannot be customized.")
+            input("\nPress Enter to continue...")
+            return
+
+        while True:
+            print("\n" + "="*60)
+            print("🎨 Display Color Configuration")
+            print("="*60)
+
+            # Show current colors
+            print("\nCurrent Colors:")
+            thinking_color = settings.get_thinking_color()
+            agent_a_color = settings.get_agent_color('agent_a')
+            agent_b_color = settings.get_agent_color('agent_b')
+
+            # Display with actual colors
+            thinking_color_obj = getattr(Fore, thinking_color, Fore.LIGHTYELLOW_EX)
+            agent_a_color_obj = getattr(Fore, agent_a_color, Fore.CYAN)
+            agent_b_color_obj = getattr(Fore, agent_b_color, Fore.YELLOW)
+
+            print(f"  1. {thinking_color_obj}Thinking Text{Style.RESET_ALL} (Currently: {thinking_color})")
+            print(f"  2. {agent_a_color_obj}Agent A - Nova{Style.RESET_ALL} (Currently: {agent_a_color})")
+            print(f"  3. {agent_b_color_obj}Agent B - Atlas{Style.RESET_ALL} (Currently: {agent_b_color})")
+            print("  4. ◀️  Back")
+
+            choice = input("\nSelect element to customize (1-4): ").strip()
+
+            if choice == '1':
+                self._pick_color(settings, 'thinking', 'Thinking Text')
+            elif choice == '2':
+                self._pick_color(settings, 'agent_a', 'Agent A - Nova')
+            elif choice == '3':
+                self._pick_color(settings, 'agent_b', 'Agent B - Atlas')
+            elif choice == '4':
+                break
+            else:
+                print("\n❌ Invalid choice. Please enter 1-4.")
+
+    def _pick_color(self, settings, target: str, display_name: str):
+        """
+        Show color picker and apply selection.
+
+        Args:
+            settings: SettingsManager instance
+            target: 'thinking', 'agent_a', or 'agent_b'
+            display_name: Human-readable name for display
+        """
+        try:
+            from colorama import Fore, Style
+        except ImportError:
+            return
+
+        print("\n" + "="*60)
+        print(f"🎨 Select Color for {display_name}")
+        print("="*60)
+
+        # Get available colors
+        colors = settings.get_available_colors()
+
+        print("\nAvailable Colors (with preview):\n")
+
+        # Display colors in two columns for better layout
+        for idx, (color_code, color_display) in enumerate(colors, 1):
+            color_obj = getattr(Fore, color_code, Fore.WHITE)
+            # Show color preview
+            preview = f"{color_obj}████ Sample Text{Style.RESET_ALL}"
+            print(f"  {idx:2}. {preview:40} ({color_display})")
+
+        print(f"\n  {len(colors) + 1}. Cancel")
+
+        choice = input(f"\nSelect color (1-{len(colors) + 1}): ").strip()
+
+        try:
+            idx = int(choice) - 1
+            if idx == len(colors):
+                # Cancel
+                return
+            elif 0 <= idx < len(colors):
+                color_code, color_display = colors[idx]
+
+                # Preview the selection
+                color_obj = getattr(Fore, color_code, Fore.WHITE)
+                print(f"\n{color_obj}Preview: This is how {display_name} will look{Style.RESET_ALL}")
+
+                confirm = input("\nApply this color? (y/n): ").strip().lower()
+                if confirm == 'y':
+                    # Apply the color
+                    try:
+                        if target == 'thinking':
+                            settings.set_thinking_color(color_code)
+                        elif target == 'agent_a':
+                            settings.set_agent_color('agent_a', color_code)
+                        elif target == 'agent_b':
+                            settings.set_agent_color('agent_b', color_code)
+
+                        print(f"✅ Color for {display_name} set to {color_display}!")
+                        print("\n💡 Note: Colors will take effect in new conversations.")
+                    except ValueError as e:
+                        print(f"❌ Error: {e}")
+                else:
+                    print("❌ Cancelled.")
+            else:
+                print("❌ Invalid selection.")
+        except ValueError:
+            print("❌ Please enter a valid number.")
 
         input("\nPress Enter to continue...")
 
