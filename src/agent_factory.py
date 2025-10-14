@@ -95,8 +95,17 @@ class AgentFactory:
             except Exception as e:
                 print(f"   ⚠️  Warning: Failed to read {agent_file.name}: {e}")
 
+        # Count total files for more informative message
+        total_files = len(list(self.agents_dir.glob("*.md")))
+
         if self.used_names:
-            print(f"   📝 Loaded {len(self.used_names)} existing agent names")
+            if total_files == len(self.used_names):
+                # All files have unique names
+                print(f"   📝 Loaded {len(self.used_names)} existing agents")
+            else:
+                # Some duplicates exist (shouldn't happen after cleanup, but defensive)
+                duplicates = total_files - len(self.used_names)
+                print(f"   📝 Loaded {len(self.used_names)} unique agents ({total_files} files, {duplicates} duplicates detected)")
 
     async def create_agent(
         self,

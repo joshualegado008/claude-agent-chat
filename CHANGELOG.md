@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.2] - 2025-10-14
+
+### Fixed
+
+- **Duplicate agent file cleanup**: Removed 67 duplicate agent files (`.md`) and 8 duplicate metadata files (`.json`) that were created before the name uniqueness fix in v0.4.1
+- **Misleading startup message**: Fixed agent loading message to accurately show unique agent count vs total files, preventing confusion when duplicates exist
+
+### Changed
+
+- **Agent loading message**: Updated `agent_factory.py:_load_existing_names()` to display:
+  - `📝 Loaded {N} existing agents` when all files are unique
+  - `📝 Loaded {N} unique agents ({total} files, {duplicates} duplicates detected)` when duplicates exist
+
+### Added
+
+- **Cleanup script**: Added `cleanup_duplicate_agents.py` with dry-run mode for safe duplicate removal
+- **Backup system**: Created timestamped backups in `backup/agents-YYYYMMDD-HHMMSS/` before cleanup operations
+- **Cleanup report**: Detailed report showing which duplicates will be deleted, grouped by agent name
+
+### Performance
+
+- **Faster startup**: Reduced agent file count from 108 to 41 files (62% reduction)
+- **Disk space**: Freed up storage by removing 67 redundant `.md` files and 8 redundant `.json` files
+- **Cleaner data**: All remaining 41 agents now have unique names with no duplicates
+
+---
+
 ## [0.4.1] - 2025-10-13
 
 ### Fixed
