@@ -4,6 +4,7 @@ Uses OpenAI GPT-4o-mini for intelligent analysis
 """
 
 import os
+import re
 import json
 from typing import Dict, List, Optional
 from datetime import datetime
@@ -12,6 +13,22 @@ import openai
 
 class MetadataExtractor:
     """Extracts rich metadata from conversation titles and content."""
+
+    @staticmethod
+    def _extract_urls(text: str) -> List[str]:
+        """
+        Extract all URLs from text.
+
+        Args:
+            text: Text that may contain URLs
+
+        Returns:
+            List of URLs found in text
+        """
+        # Pattern matches http:// or https:// URLs
+        url_pattern = r'https?://[^\s<>"\'})\]]+'
+        urls = re.findall(url_pattern, text)
+        return urls
 
     def __init__(self, api_key: Optional[str] = None):
         """
@@ -37,19 +54,25 @@ class MetadataExtractor:
         """
         Generate an engaging initial prompt from the conversation title.
 
+        Preserves any URLs found in the title so agents can reference them.
+
         Args:
             title: The conversation title
 
         Returns:
-            A well-crafted initial prompt for the agents
+            A well-crafted initial prompt for the agents (with URLs preserved)
         """
+        # Extract URLs from title before generating prompt
+        urls = self._extract_urls(title)
+
         system_prompt = """You are a conversation starter expert. Given a topic/title,
 create a thoughtful, engaging initial prompt that will spark an interesting discussion
 between two AI agents. The prompt should:
 - Be open-ended and thought-provoking
 - Encourage multiple perspectives
 - Be 2-3 sentences maximum
-- Not just repeat the title"""
+- Focus on the core topic/question
+- DO NOT include URLs in your response (they will be added separately)"""
 
         try:
             response = self.client.chat.completions.create(
@@ -62,10 +85,25 @@ between two AI agents. The prompt should:
                 temperature=0.8
             )
 
-            return response.choices[0].message.content.strip()
+            generated_prompt = response.choices[0].message.content.strip()
+
+            # If URLs were found in title, append them to the generated prompt
+            if urls:
+                generated_prompt += "\n\nReferences:\n"
+                for url in urls:
+                    generated_prompt += f"- {url}\n"
+
+            return generated_prompt
+
         except Exception as e:
             print(f"⚠️  Failed to generate prompt: {e}")
-            return f"Let's have a thoughtful discussion about: {title}"
+            # Even in fallback, preserve URLs
+            fallback = f"Let's have a thoughtful discussion about: {title}"
+            if urls:
+                fallback += "\n\nReferences:\n"
+                for url in urls:
+                    fallback += f"- {url}\n"
+            return fallback
 
     def extract_tags_from_title(self, title: str, max_tags: int = 5) -> List[str]:
         """
