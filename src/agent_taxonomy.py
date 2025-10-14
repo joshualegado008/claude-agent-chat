@@ -3,7 +3,7 @@ Agent classification and taxonomy system.
 Organizes agents by Domain > Class > Specialization.
 
 This module provides:
-- 22 agent classes across 7 domains
+- 23 agent classes across 7 domains
 - Classification based on keyword matching with API fallback
 - Similarity detection for deduplication
 - Capacity management per class
@@ -36,7 +36,7 @@ class AgentTaxonomy:
         self._initialize_taxonomy()
 
     def _initialize_taxonomy(self):
-        """Create taxonomy tree with 20 classes across 7 domains."""
+        """Create taxonomy tree with 23 classes across 7 domains."""
 
         # MEDICINE (4 classes)
         self._add_class(AgentClass(
@@ -75,7 +75,7 @@ class AgentTaxonomy:
             keywords={"cancer", "oncology", "tumor", "chemotherapy", "malignancy"}
         ))
 
-        # HUMANITIES (8 classes) - EXPANDED
+        # HUMANITIES (9 classes) - EXPANDED
         self._add_class(AgentClass(
             name="Ancient Near East",
             domain=AgentDomain.HUMANITIES,
@@ -146,6 +146,15 @@ class AgentTaxonomy:
             description="Teaching, learning, and pedagogy",
             typical_skills=["curriculum design", "pedagogy", "learning theory", "assessment"],
             keywords={"education", "teaching", "pedagogy", "curriculum", "learning", "classroom", "student", "instruction"}
+        ))
+
+        self._add_class(AgentClass(
+            name="Religious Studies",
+            domain=AgentDomain.HUMANITIES,
+            parent="Humanities",
+            description="Comparative religion and interfaith perspectives",
+            typical_skills=["comparative religion", "theology", "interfaith dialogue", "religious history"],
+            keywords={"religion", "religious", "faith", "theology", "interfaith", "spiritual", "sacred", "scripture", "biblical", "religious studies", "belief", "worship"}
         ))
 
         # SCIENCE (4 classes)
@@ -261,7 +270,7 @@ class AgentTaxonomy:
             keywords={"music", "musical", "composition", "harmony", "melody", "song"}
         ))
 
-        # Total: 22 classes across 7 domains (8 in HUMANITIES, 4 in MEDICINE, 4 in SCIENCE, 3 in TECHNOLOGY, 2 in BUSINESS, 1 in LAW, 2 in ARTS)
+        # Total: 23 classes across 7 domains (9 in HUMANITIES, 4 in MEDICINE, 4 in SCIENCE, 3 in TECHNOLOGY, 2 in BUSINESS, 1 in LAW, 2 in ARTS)
 
     def _add_class(self, agent_class: AgentClass):
         """Add a class to the taxonomy."""
@@ -293,7 +302,9 @@ class AgentTaxonomy:
             print(f"   ✅ Keyword match: {result['primary_class']} ({result['domain'].value}) - confidence: {result['confidence']:.2f}")
             return result
 
-        print(f"   ⚠️  Low confidence ({result['confidence']:.2f} if result else 0.0) - trying API classification...")
+        # Show confidence if available, otherwise just note it's low
+        confidence_str = f"{result['confidence']:.2f}" if result else "0.00"
+        print(f"   ⚠️  Low confidence ({confidence_str}) - trying API classification...")
 
         # Fallback to API-based classification
         api_result = self._classify_via_api(description)
@@ -401,6 +412,16 @@ class AgentTaxonomy:
                 'primary_class': 'Education',
                 'subclass': 'Humanities',
                 'confidence': 0.8
+            }
+
+        # RELIGIOUS STUDIES
+        if any(word in description_lower for word in ['religion', 'religious', 'theology', 'interfaith', 'faith', 'spiritual', 'sacred', 'scripture', 'biblical']):
+            print(f"      → Religious Studies keywords found")
+            return {
+                'domain': AgentDomain.HUMANITIES,
+                'primary_class': 'Religious Studies',
+                'subclass': 'Humanities',
+                'confidence': 0.9
             }
 
         # PSYCHOLOGY
