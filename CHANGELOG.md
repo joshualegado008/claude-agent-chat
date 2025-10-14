@@ -7,7 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [0.3.0] - 2025-10-13
+
 ### Added
+
+#### 💬 User Content Injection
+- **Mid-conversation injection**: Pause conversations and inject custom user content (terminal and web)
+- **Interactive prompt**: Multi-line text input with URL detection
+- **WebSocket integration**: Real-time injection in web interface via `InjectContentModal.tsx`
+- **Database persistence**: User injections stored as special USER exchanges
+- **Context highlighting**: Injected content prominently displayed in conversation context
+
+#### 🔧 Tool Use Visibility
+- **Web browsing display**: Show when agents use fetch_url tool to browse websites
+- **Tool use events**: Backend forwards tool_use events to frontend for real-time display
+- **Expandable UI**: `ToolUseMessage.tsx` component with collapsible details
+- **URL highlighting**: Automatically detect and display fetched URLs
+
+#### 📊 Conversation State Management
+- **Four-state system**: Active, Paused, Completed, Archived status tracking
+- **Pause vs Stop**: Clear distinction between temporary pause (resumable) and permanent completion
+- **Database migration**: Added 'paused' status to conversation schema (`migrations/002_add_paused_status.sql`)
+- **Smart cleanup logic**: WebSocket disconnect handling with priority-based status determination
+- **State documentation**: Comprehensive `CONVERSATION_STATES.md` with lifecycle diagrams and testing scenarios
+
+#### 🌐 Enhanced Web Interface
+- **Inject button**: Available when conversation is paused
+- **Tool use cards**: Purple bordered cards showing agent web browsing activity
+- **State badges**: Color-coded status badges (green/blue/yellow) on homepage
+- **Resume messaging**: "This conversation is paused" with resume button
+- **Clean UI**: Removed emojis from status badges for professional appearance
 
 #### 🔧 Geeky Technical Stats Mode
 - **Comprehensive token breakdown display** showing input (context + prompt), output, and thinking tokens separately
@@ -40,6 +71,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Missing metadata table handling**: Added graceful fallback when `conversation_metadata` table doesn't exist
 - **Database initialization**: Metadata schema now automatically included in docker-compose setup
 - **Import reliability**: Enhanced agent_runner to return complete model metadata including thinking tokens
+- **Database connection issues**: Fixed stale connections after docker-compose restart
+- **API 500 errors**: Resolved by restarting web server after database restart
 
 ### Changed
 
@@ -47,12 +80,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Context analysis**: Coordinator now calculates and tracks context window statistics in real-time
 - **Configuration loading**: Main coordinator loads full config.yaml for access to all settings
 - **Stats display logic**: Conditionally shows simple vs geeky stats based on config setting
+- **WebSocket handler**: Added pause/resume/stop/inject command support
+- **Conversation page**: Enhanced with injection support and tool use display
+- **ConversationControls**: Added inject button for paused conversations
+- **Homepage badges**: Simplified to show status without emojis
 
 ### Documentation
 
+- **CONVERSATION_STATES.md**: Comprehensive state lifecycle documentation with diagrams, UI specs, and testing scenarios
 - **SETUP_DATABASE.md**: Added comprehensive migration guide for existing databases
 - **CHANGELOG.md**: Created to track version history
-- **README.md**: Updated with new features and configuration options
+- **README.md**: Updated with new features (injection, tool visibility, state management) and file structure
 - **Code comments**: Enhanced inline documentation for technical stats methods
 
 ---
