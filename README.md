@@ -54,7 +54,31 @@ This project enables two Claude Code agents to have natural, extended conversati
 
 Perfect for system engineers who want complete transparency into token usage, context management, and cost accumulation!
 
-### 💾 Database Persistence & Semantic Search (NEW!)
+### 🤖 Dynamic Multi-Agent System (NEW!)
+- **On-Demand Agent Creation**: System analyzes conversation topic and creates specialized expert agents automatically
+- **Agent Deduplication**: Prevents duplicate agents with similar expertise (85-95% similarity detection)
+- **5-Dimension Rating System**: Rate agents on helpfulness, accuracy, relevance, clarity, and collaboration after each conversation
+- **6-Rank Promotion System**: Agents level up from NOVICE → COMPETENT → EXPERT → MASTER → LEGENDARY → GOD_TIER based on performance
+- **Lifecycle Management**: HOT (active) → WARM (7 days) → COLD (90 days) → ARCHIVED → RETIRED states
+- **Leaderboard**: Track top-performing agents across all conversations with detailed analytics
+- **Cost Tracking**: Monitor API costs for agent creation (~$0.013-$0.015 per agent)
+
+👉 **[See INTEGRATION_COMPLETE.md for Phase 1E guide](INTEGRATION_COMPLETE.md)**
+
+Example flow:
+```
+Topic: "Ancient Mesopotamian agriculture"
+↓
+System creates 2 dynamic agents:
+  • Dr. Ashurbanipal Chen (Ancient Near East expert)
+  • Irrigation Systems Specialist (Agricultural science)
+↓
+Conversation proceeds with specialized experts
+↓
+Rate agents after completion → Agents gain rank points
+```
+
+### 💾 Database Persistence & Semantic Search
 - **PostgreSQL Storage**: All conversations, exchanges, and metadata persistently stored
 - **Qdrant Vector Search**: Semantic search across conversation history using embeddings
 - **Continue Conversations**: Resume any previous conversation from where you left off
@@ -442,7 +466,10 @@ claude-agent-chat/
 ├── .claude/
 │   └── agents/
 │       ├── agent_a.md                    # Nova (Optimistic Visionary)
-│       └── agent_b.md                    # Atlas (Pragmatic Analyst)
+│       ├── agent_b.md                    # Atlas (Pragmatic Analyst)
+│       └── dynamic/                      # NEW: Dynamically created agents
+│           ├── dynamic-a551f2bec1c4.md   # Example: Dr. Marcus Ashford (Cardiology)
+│           └── ...                       # More dynamic agents
 ├── web/                                  # NEW: Web Interface
 │   ├── frontend/                         # Next.js React app
 │   │   ├── app/                          # App Router pages
@@ -466,19 +493,42 @@ claude-agent-chat/
 │   │   └── websocket_handler.py          # WebSocket streaming + state logic
 │   └── start-web.sh                      # Service launcher
 ├── coordinator.py                        # Original orchestration script
-├── coordinator_with_memory.py            # NEW: With database persistence
+├── coordinator_with_memory.py            # NEW: With database persistence + Phase 1E
+├── enhanced_coordinator.py              # NEW: Standalone Phase 1E coordinator
 ├── conversation_manager.py               # Context & memory management
 ├── conversation_manager_persistent.py    # NEW: Database-backed manager
-├── agent_runner.py                      # API client management
+├── agent_runner.py                      # API client management (with lazy-loading)
 ├── display_formatter.py                 # Terminal output formatting
 ├── menu.py                             # NEW: Interactive menu system
 ├── db_manager.py                       # NEW: PostgreSQL & Qdrant manager
 ├── cost_calculator.py                  # NEW: Token cost tracking
-├── settings_manager.py                 # NEW: Configuration management
+├── settings_manager.py                 # NEW: Configuration management (API key sync)
 ├── metadata_extractor.py               # NEW: AI-powered conversation analysis
 ├── terminal_dashboard.py               # NEW: Rich metadata visualization
-├── config.yaml                         # Configuration file
+├── config.yaml                         # Configuration file (with Phase 1E settings)
 ├── web_tools.py                        # NEW: Web browsing tools for agents
+├── src/                                # NEW: Phase 1E Dynamic Agent System
+│   ├── __init__.py
+│   ├── agent_coordinator.py            # Central orchestration
+│   ├── agent_factory.py                # Agent creation with Claude API
+│   ├── dynamic_agent_registry.py       # Agent storage and retrieval
+│   ├── performance_tracker.py          # Rating history and analytics
+│   ├── agent_lifecycle.py              # Lifecycle management (HOT/WARM/COLD)
+│   ├── agent_deduplicator.py           # Similarity detection
+│   ├── leaderboard.py                  # Agent ranking system
+│   ├── data_models.py                  # Data structures
+│   └── utils.py                        # Utility functions
+├── tests/                              # NEW: Phase 1 test suites
+│   ├── test_phase_1a.py                # Agent creation tests
+│   ├── test_phase_1b.py                # Registry and deduplication tests
+│   └── test_phase_1c.py                # End-to-end integration tests
+├── examples/                           # NEW: Example configurations
+├── data/                               # NEW: Phase 1E persistent data
+│   ├── agents/                         # Agent profiles (JSON)
+│   ├── performance/                    # Performance history
+│   ├── ratings/                        # Rating records
+│   ├── leaderboard/                    # Leaderboard cache
+│   └── conversations/                  # Conversation metadata
 ├── docker-compose.yml                  # NEW: Database services setup
 ├── init.sql                           # NEW: PostgreSQL schema
 ├── metadata_schema.sql                # NEW: Metadata tables
@@ -488,6 +538,7 @@ claude-agent-chat/
 ├── FEATURES.md                        # Extended thinking & streaming guide
 ├── SETUP_DATABASE.md                  # NEW: Database setup guide
 ├── CONVERSATION_STATES.md             # NEW: Conversation state lifecycle guide
+├── INTEGRATION_COMPLETE.md            # NEW: Phase 1E dynamic agent system guide
 ├── CHANGELOG.md                       # NEW: Version history
 ├── .env.example                       # Environment variable template
 ├── .env                              # Your API key (create from .env.example)

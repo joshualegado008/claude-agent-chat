@@ -9,6 +9,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.0] - 2025-10-13
+
+### Added
+
+#### 🤖 Dynamic Multi-Agent System (Phase 1E)
+- **On-demand agent creation**: System analyzes conversation topic and creates specialized expert agents dynamically
+- **Agent deduplication**: Prevents creation of duplicate agents with similar expertise (85-95% similarity threshold)
+- **Topic analysis**: GPT-4o-mini integration for intelligent topic extraction and refinement
+- **Agent taxonomy**: Hierarchical classification system (domain → classification → skills)
+- **5-dimension rating system**: Rate agents on helpfulness (30%), accuracy (25%), relevance (20%), clarity (15%), collaboration (10%)
+- **6-rank promotion system**:
+  - 📗 NOVICE (0-9 points)
+  - 📘 COMPETENT (10-24 points)
+  - 📙 EXPERT (25-49 points)
+  - 📕 MASTER (50-99 points)
+  - 🔮 LEGENDARY (100-199 points)
+  - ⭐ GOD_TIER (200+ points) - Never retired!
+- **Lifecycle management**: HOT (active) → WARM (7 days) → COLD (90 days) → ARCHIVED (180 days) → RETIRED states
+- **Leaderboard system**: Track top-performing agents across all conversations
+- **Agent persistence**: JSON-based storage for agents, ratings, performance history, and leaderboard
+- **Agent prompt generation**: Dynamic creation of system prompts with personality, expertise, and conversation style
+- **Cost tracking**: Monitor API costs for agent creation ($0.013-$0.015 per agent)
+- **AgentCoordinator class**: Central orchestration for dynamic agent lifecycle (`src/agent_coordinator.py`)
+- **AgentFactory**: Template-based agent generation with Claude API (`src/agent_factory.py`)
+- **DynamicAgentRegistry**: Agent storage and retrieval system (`src/dynamic_agent_registry.py`)
+- **PerformanceTracker**: Rating history and analytics (`src/performance_tracker.py`)
+- **AgentLifecycleManager**: Tier management and retirement logic (`src/agent_lifecycle.py`)
+- **AgentDeduplicator**: Similarity detection and duplicate prevention (`src/agent_deduplicator.py`)
+
+#### 📊 Post-Conversation Rating Flow
+- **Interactive rating prompt**: Rate each agent after conversation completes
+- **Promotion notifications**: Celebrate when agents level up ranks
+- **Performance dashboard**: Display agent statistics, ranks, and scores
+- **Rating persistence**: Store all ratings with timestamps and conversation context
+- **Weighted scoring**: Configurable weights for different rating dimensions
+
+#### 🎯 Integration with coordinator_with_memory.py
+- **Seamless integration**: Drop-in replacement for static Nova/Atlas agents
+- **Fallback mode**: Automatically reverts to static agents if dynamic system fails
+- **Database compatibility**: Works with PostgreSQL and Qdrant persistence
+- **All features preserved**: User injection, tool visibility, state management, metadata extraction
+- **Enhanced topic analysis**: Uses OpenAI for better agent selection
+
+### Fixed
+
+#### 🔑 OpenAI API Key Three-Way Sync
+- **Root cause**: Settings menu only updated `settings.json`, not `.env` file
+- **Fix**: Added `_update_env_file()` method to `settings_manager.py`
+- **Three-way updates**: Now syncs `settings.json`, `.env` file, AND process environment
+- **Methods updated**: `set_openai_api_key()` and `set_anthropic_api_key()`
+- **Impact**: API key updates now take effect immediately after restart
+
+#### 🤖 Agent Prompt Lazy-Loading
+- **Root cause**: AgentRunner only loaded prompts for agents in `config.yaml` at initialization
+- **Fix**: Added lazy-loading logic in `send_message_streaming()` and `send_message_to_agent()`
+- **Behavior**: Dynamic agents now load prompts on-demand from disk and cache them
+- **Impact**: Dynamic agents can now run without pre-configuration
+
+#### ⚙️ Extended Thinking Token Limits
+- **Root cause**: Default `max_tokens=2048` was less than `thinking_budget=5000`
+- **Error**: "max_tokens must be greater than thinking.budget_tokens"
+- **Fix**: Changed default from 2048 to 8000 in both `send_message_to_agent()` and `send_message_streaming()`
+- **Impact**: Extended thinking now works correctly for dynamic agents
+
+### Changed
+
+- **Agent file structure**: Dynamic agents stored in `.claude/agents/dynamic/` subdirectory
+- **Agent ID format**: Dynamic agents use `dynamic/<hash>` pattern (e.g., `dynamic/dynamic-a551f2bec1c4`)
+- **Path extraction**: Fixed agent ID extraction to preserve subdirectory structure
+- **Settings validation**: Enhanced API key validation with test calls
+- **Configuration**: Added Phase 1E settings to `config.yaml` (openai, agent_factory, agent_lifecycle, rating, taxonomy)
+
+### Documentation
+
+- **INTEGRATION_COMPLETE.md**: Comprehensive Phase 1E integration guide with usage examples, data storage, and testing recommendations
+- **Test suites**: Added `test_phase_1a.py`, `test_phase_1b.py`, `test_phase_1c.py` for Phase 1 validation
+- **Examples**: Added example configurations in `examples/` directory
+- **README updates**: Phase 1E feature documentation (below)
+
+---
+
 ## [0.3.0] - 2025-10-13
 
 ### Added

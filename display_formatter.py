@@ -670,3 +670,248 @@ class DisplayFormatter:
             print(f"\n{Fore.YELLOW}{Style.BRIGHT}⚠️  Warning:{Style.RESET_ALL} {message}")
         else:
             print(f"\n⚠️  Warning: {message}")
+
+    # ============================================================================
+    # Phase 1D: Rating & Lifecycle Display Methods
+    # ============================================================================
+
+    @staticmethod
+    def print_rating_prompt(agent_name: str) -> dict:
+        """
+        Interactive rating prompt for agent performance.
+
+        Prompts user to rate the agent on 5 dimensions (1-5 scale):
+        - Helpfulness (30% weight)
+        - Accuracy (25% weight)
+        - Relevance (20% weight)
+        - Clarity (15% weight)
+        - Collaboration (10% weight)
+
+        Returns:
+            dict with rating values and optional comment
+        """
+        if COLORS_AVAILABLE:
+            print(f"\n{Fore.MAGENTA}{Style.BRIGHT}{'=' * 60}{Style.RESET_ALL}")
+            print(f"{Fore.MAGENTA}{Style.BRIGHT}⭐ Rate Agent Performance: {agent_name}{Style.RESET_ALL}")
+            print(f"{Fore.MAGENTA}{Style.BRIGHT}{'=' * 60}{Style.RESET_ALL}\n")
+        else:
+            print(f"\n{'=' * 60}")
+            print(f"⭐ Rate Agent Performance: {agent_name}")
+            print(f"{'=' * 60}\n")
+
+        print("Rate each dimension on a scale of 1-5:")
+        print("  1 = Poor, 2 = Below Average, 3 = Average, 4 = Good, 5 = Excellent\n")
+
+        dimensions = [
+            ("Helpfulness", "How helpful was this agent's contribution?", 30),
+            ("Accuracy", "How accurate was the information provided?", 25),
+            ("Relevance", "How relevant to the discussion topic?", 20),
+            ("Clarity", "How clear was the communication?", 15),
+            ("Collaboration", "How well did they work with others?", 10)
+        ]
+
+        ratings = {}
+
+        for dimension, description, weight in dimensions:
+            while True:
+                if COLORS_AVAILABLE:
+                    prompt = f"{Fore.CYAN}{dimension}{Style.RESET_ALL} ({weight}% weight) - {description}\n  Rating (1-5): "
+                else:
+                    prompt = f"{dimension} ({weight}% weight) - {description}\n  Rating (1-5): "
+
+                try:
+                    value = input(prompt).strip()
+                    rating = int(value)
+                    if 1 <= rating <= 5:
+                        ratings[dimension.lower()] = rating
+                        break
+                    else:
+                        if COLORS_AVAILABLE:
+                            print(f"  {Fore.RED}Please enter a number between 1 and 5.{Style.RESET_ALL}")
+                        else:
+                            print("  Please enter a number between 1 and 5.")
+                except ValueError:
+                    if COLORS_AVAILABLE:
+                        print(f"  {Fore.RED}Please enter a valid number.{Style.RESET_ALL}")
+                    else:
+                        print("  Please enter a valid number.")
+
+        # Optional comment
+        print(f"\n{Style.DIM}Optional: Add a comment (press Enter to skip):{Style.RESET_ALL}")
+        comment = input("  Comment: ").strip()
+
+        if comment:
+            ratings['comment'] = comment
+
+        # Show summary
+        print(f"\n{Style.DIM}{'─' * 60}{Style.RESET_ALL}")
+        if COLORS_AVAILABLE:
+            print(f"{Fore.GREEN}✅ Rating submitted!{Style.RESET_ALL}")
+        else:
+            print("✅ Rating submitted!")
+
+        return ratings
+
+    @staticmethod
+    def print_promotion_announcement(
+        agent_name: str,
+        old_rank,
+        new_rank,
+        promotion_points: int
+    ):
+        """
+        Display promotion announcement with celebration.
+
+        Args:
+            agent_name: Name of the promoted agent
+            old_rank: Previous AgentRank
+            new_rank: New AgentRank
+            promotion_points: Total points achieved
+        """
+        if COLORS_AVAILABLE:
+            print(f"\n{Fore.YELLOW}{Style.BRIGHT}{'🎉' * 30}{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}{Style.BRIGHT}{'═' * 60}{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}{Style.BRIGHT}         PROMOTION ANNOUNCEMENT!{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}{Style.BRIGHT}{'═' * 60}{Style.RESET_ALL}\n")
+
+            print(f"{Fore.CYAN}{Style.BRIGHT}{agent_name}{Style.RESET_ALL} has been promoted!\n")
+
+            # Rank transition with icons
+            print(f"  {old_rank.icon} {Fore.WHITE}{old_rank.display_name}{Style.RESET_ALL}", end="")
+            print(f"  →  {new_rank.icon} {Fore.GREEN}{Style.BRIGHT}{new_rank.display_name}{Style.RESET_ALL}\n")
+
+            # Points achieved
+            print(f"  {Fore.YELLOW}⭐ Points Achieved:{Style.RESET_ALL} {promotion_points}")
+
+            # Retirement protection
+            protection_days = new_rank.retirement_protection_days
+            if protection_days == 99999:
+                protection_str = "∞ (Never retires!)"
+            else:
+                protection_str = f"{protection_days} days"
+            print(f"  {Fore.BLUE}🛡️  Retirement Protection:{Style.RESET_ALL} {protection_str}")
+
+            # Special message for God Tier
+            if new_rank.name == 'GOD_TIER':
+                print(f"\n  {Fore.YELLOW}{Style.BRIGHT}{'✨' * 25}{Style.RESET_ALL}")
+                print(f"  {Fore.YELLOW}{Style.BRIGHT}  🌟 WELCOME TO THE HALL OF FAME! 🌟  {Style.RESET_ALL}")
+                print(f"  {Fore.YELLOW}{Style.BRIGHT}{'✨' * 25}{Style.RESET_ALL}")
+
+            print(f"\n{Fore.YELLOW}{Style.BRIGHT}{'═' * 60}{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}{Style.BRIGHT}{'🎉' * 30}{Style.RESET_ALL}\n")
+
+        else:
+            # Non-colored version
+            print(f"\n{'🎉' * 30}")
+            print(f"{'═' * 60}")
+            print(f"         PROMOTION ANNOUNCEMENT!")
+            print(f"{'═' * 60}\n")
+
+            print(f"{agent_name} has been promoted!\n")
+            print(f"  {old_rank.icon} {old_rank.display_name}  →  {new_rank.icon} {new_rank.display_name}\n")
+            print(f"  ⭐ Points Achieved: {promotion_points}")
+
+            protection_days = new_rank.retirement_protection_days
+            if protection_days == 99999:
+                protection_str = "∞ (Never retires!)"
+            else:
+                protection_str = f"{protection_days} days"
+            print(f"  🛡️  Retirement Protection: {protection_str}")
+
+            if new_rank.name == 'GOD_TIER':
+                print(f"\n  {'✨' * 25}")
+                print(f"    🌟 WELCOME TO THE HALL OF FAME! 🌟  ")
+                print(f"  {'✨' * 25}")
+
+            print(f"\n{'═' * 60}")
+            print(f"{'🎉' * 30}\n")
+
+    @staticmethod
+    def print_leaderboard(leaderboard_profiles: list, title: str = "Agent Leaderboard"):
+        """
+        Display agent leaderboard in table format.
+
+        Args:
+            leaderboard_profiles: List of AgentPerformanceProfile objects
+            title: Optional custom title
+        """
+        if not leaderboard_profiles:
+            if COLORS_AVAILABLE:
+                print(f"\n{Fore.YELLOW}No agents to display in leaderboard.{Style.RESET_ALL}\n")
+            else:
+                print("\nNo agents to display in leaderboard.\n")
+            return
+
+        if COLORS_AVAILABLE:
+            print(f"\n{Fore.CYAN}{Style.BRIGHT}{'═' * 80}{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}{Style.BRIGHT}🏆 {title}{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}{Style.BRIGHT}{'═' * 80}{Style.RESET_ALL}\n")
+
+            # Table header
+            print(f"{Fore.WHITE}{Style.BRIGHT}{'Rank':^6} {'':^3} {'Agent Name':<30} {'Points':>8} {'Avg Rating':>12} {'Conversations':>14}{Style.RESET_ALL}")
+            print(f"{Fore.WHITE}{'─' * 80}{Style.RESET_ALL}")
+
+        else:
+            print(f"\n{'═' * 80}")
+            print(f"🏆 {title}")
+            print(f"{'═' * 80}\n")
+            print(f"{'Rank':^6} {'':^3} {'Agent Name':<30} {'Points':>8} {'Avg Rating':>12} {'Conversations':>14}")
+            print('─' * 80)
+
+        # Display each agent
+        for position, profile in enumerate(leaderboard_profiles, 1):
+            rank_icon = profile.current_rank.icon
+            agent_name = profile.agent_name[:28] if len(profile.agent_name) > 28 else profile.agent_name
+            points = profile.promotion_points
+            avg_rating = f"{profile.avg_rating:.2f}/5.0"
+            conversations = profile.total_conversations
+
+            # Color code by rank
+            if COLORS_AVAILABLE:
+                if profile.current_rank.name == 'GOD_TIER':
+                    color = Fore.YELLOW
+                elif profile.current_rank.name == 'LEGENDARY':
+                    color = Fore.MAGENTA
+                elif profile.current_rank.name == 'MASTER':
+                    color = Fore.CYAN
+                elif profile.current_rank.name == 'EXPERT':
+                    color = Fore.BLUE
+                elif profile.current_rank.name == 'COMPETENT':
+                    color = Fore.GREEN
+                else:
+                    color = Fore.WHITE
+
+                # Special formatting for top 3
+                if position <= 3:
+                    position_str = f"{Style.BRIGHT}{position}{Style.RESET_ALL}"
+                    if position == 1:
+                        medal = "🥇"
+                    elif position == 2:
+                        medal = "🥈"
+                    else:
+                        medal = "🥉"
+                else:
+                    position_str = f"{position}"
+                    medal = "  "
+
+                print(f"{color}{position_str:>6} {medal:^3} {agent_name:<30} {points:>8} {avg_rating:>12} {conversations:>14}{Style.RESET_ALL}")
+
+            else:
+                if position <= 3:
+                    if position == 1:
+                        medal = "🥇"
+                    elif position == 2:
+                        medal = "🥈"
+                    else:
+                        medal = "🥉"
+                else:
+                    medal = "  "
+
+                print(f"{position:>6} {medal:^3} {agent_name:<30} {points:>8} {avg_rating:>12} {conversations:>14}")
+
+        if COLORS_AVAILABLE:
+            print(f"{Fore.WHITE}{'─' * 80}{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}{Style.DIM}Total agents tracked: {len(leaderboard_profiles)}{Style.RESET_ALL}\n")
+        else:
+            print('─' * 80)
+            print(f"Total agents tracked: {len(leaderboard_profiles)}\n")

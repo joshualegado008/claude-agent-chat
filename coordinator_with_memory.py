@@ -25,6 +25,12 @@ try:
 except ImportError:
     RICH_CONTEXT_AVAILABLE = False
 
+# Phase 1E: Dynamic multi-agent system
+from src.agent_coordinator import AgentCoordinator
+from src.data_models import AgentProfile
+from pathlib import Path
+import asyncio
+
 
 class ConversationInterruptHandler:
     """Handles Ctrl-C interrupts during conversations with interactive menu."""
@@ -325,6 +331,16 @@ def main():
         print("\nSee SETUP_DATABASE.md for detailed instructions.")
         return 1
 
+    # Initialize dynamic agent management system
+    try:
+        DisplayFormatter.print_info("Initializing agent management...")
+        agent_coordinator = AgentCoordinator(verbose=False)  # Set verbose=False to reduce startup noise
+        DisplayFormatter.print_success("✨ Dynamic agent management enabled")
+    except Exception as e:
+        DisplayFormatter.print_error(f"Failed to initialize agent coordinator: {e}")
+        print("\n⚠️  Falling back to static agents (Nova & Atlas)")
+        agent_coordinator = None
+
     # Show menu and get user choice
     menu = ConversationMenu(db)
 
@@ -346,7 +362,7 @@ def main():
                 continue
 
             run_conversation(
-                db, config,
+                db, config, agent_coordinator,
                 conversation_mode='new',
                 title=details['title'],
                 initial_prompt=details['initial_prompt'],
@@ -356,7 +372,7 @@ def main():
         elif action == 'continue':
             # Continue existing conversation
             run_conversation(
-                db, config,
+                db, config, agent_coordinator,
                 conversation_mode='continue',
                 conversation_id=conversation_id,
                 continuation_prompt=continuation_prompt
@@ -366,6 +382,7 @@ def main():
 def run_conversation(
     db: DatabaseManager,
     config: dict,
+    agent_coordinator: Optional[AgentCoordinator],
     conversation_mode: str = 'new',
     conversation_id: str = None,
     title: str = None,
@@ -379,6 +396,7 @@ def run_conversation(
     Args:
         db: Database manager
         config: Configuration dict
+        agent_coordinator: Dynamic agent coordinator (None = use static agents)
         conversation_mode: 'new' or 'continue'
         conversation_id: UUID for continuing
         title: Title for new conversation
@@ -473,25 +491,58 @@ Please respond considering both the previous context and this new direction."""
         print("Cancelled.")
         return
 
-    # Create agent pool
+    # Create agents (dynamic or static)
     DisplayFormatter.print_info("Initializing agents...")
     pool = AgentPool()
+    agents_profiles = []  # Track AgentProfile objects for rating
 
     try:
-        agent_a = pool.create_agent(
-            config['agent_a']['id'],
-            config['agent_a']['name']
-        )
-        agent_b = pool.create_agent(
-            config['agent_b']['id'],
-            config['agent_b']['name']
-        )
+        # Dynamic agent creation if coordinator available
+        if agent_coordinator:
+            # Extract topic from title or initial_prompt
+            topic = title or initial_prompt or "General discussion"
+
+            # Get or create dynamic agents
+            print("\n🔍 Analyzing topic and selecting experts...")
+            agents_profiles, metadata = asyncio.run(
+                agent_coordinator.get_or_create_agents(topic)
+            )
+
+            if not agents_profiles:
+                raise Exception("Could not create agents for this topic")
+
+            # Create Agent objects from profiles
+            agents = []
+            for profile in agents_profiles:
+                # Extract agent_id from the file path (relative to .claude/agents/, without .md)
+                agent_id = profile.agent_file_path.replace('.claude/agents/', '').replace('.md', '')
+                agent = pool.create_agent(agent_id, profile.name)
+                agents.append(agent)
+
+            print(f"\n✅ Using {len(agents)} dynamic agents:")
+            for profile in agents_profiles:
+                print(f"   • {profile.name} ({profile.domain.value})")
+
+        else:
+            # Fallback to static agents (Nova & Atlas)
+            print("\n⚠️  Using static agents (dynamic system unavailable)")
+            agent_a = pool.create_agent(
+                config['agent_a']['id'],
+                config['agent_a']['name']
+            )
+            agent_b = pool.create_agent(
+                config['agent_b']['id'],
+                config['agent_b']['name']
+            )
+            agents = [agent_a, agent_b]
 
         if not pool.validate_all_agents():
             DisplayFormatter.print_error("Agent validation failed!")
             return
     except Exception as e:
         DisplayFormatter.print_error(f"Error creating agents: {e}")
+        import traceback
+        traceback.print_exc()
         return
 
     # Setup rich contextual intelligence if available
@@ -523,9 +574,8 @@ Please respond considering both the previous context and this new direction."""
     # Show helpful hint
     print("\n💡 Tip: Press Ctrl-C anytime to pause and view conversation context\n")
 
-    # Run conversation
-    agents = [agent_a, agent_b]
-    current_agent_idx = start_turn % 2  # Resume with correct agent
+    # Run conversation (agents already created above)
+    current_agent_idx = start_turn % len(agents)  # Resume with correct agent
 
     total_tokens = 0
     total_cost = 0.0
@@ -672,8 +722,8 @@ Please respond to continue the discussion."""
 
 Please respond to continue the discussion."""
 
-                # Switch to other agent
-                current_agent_idx = 1 - current_agent_idx
+                # Switch to next agent (cycle through all agents)
+                current_agent_idx = (current_agent_idx + 1) % len(agents)
 
             except KeyboardInterrupt:
                 raise  # Re-raise to handle in outer try/except
@@ -703,6 +753,51 @@ Please respond to continue the discussion."""
         print("\n✅ Conversation saved to database")
         print(f"   ID: {conv_manager.conversation_id}")
         print("="*60)
+
+        # Phase 2: Rating and leaderboard (only if using dynamic agents)
+        if agent_coordinator and agents_profiles:
+            try:
+                print("\n" + "━"*60)
+                print("📊 PERFORMANCE EVALUATION")
+                print("━"*60)
+
+                # Get agent IDs from profiles (relative to .claude/agents/, without .md)
+                agent_ids = [profile.agent_file_path.replace('.claude/agents/', '').replace('.md', '')
+                            for profile in agents_profiles]
+
+                # Rate agents interactively
+                promotions = asyncio.run(
+                    agent_coordinator.rate_agents_interactive(
+                        agent_ids,
+                        conv_manager.conversation_id
+                    )
+                )
+
+                # Display leaderboard
+                print("\n" + "━"*60)
+                leaderboard = agent_coordinator.get_leaderboard(top_n=10)
+                DisplayFormatter.print_leaderboard(leaderboard, "🏆 Top Performing Agents")
+
+                # Display system statistics
+                stats = agent_coordinator.get_statistics()
+                print(f"\n📈 System Statistics:")
+                print(f"  • Total Agents: {stats['total_agents']}")
+                print(f"  • Total Conversations: {stats['total_conversations']}")
+                print(f"  • Average Rating: {stats['avg_rating']:.2f}/5.00")
+                print(f"  • Total System Cost: ${stats['total_cost']:.4f}")
+
+                # Show rank distribution
+                print(f"\n📊 Agents by Rank:")
+                for rank_name, count in stats['by_rank'].items():
+                    if count > 0:
+                        print(f"     {rank_name}: {count}")
+
+                print("━"*60)
+
+            except Exception as e:
+                print(f"\n⚠️  Error during rating: {e}")
+                import traceback
+                traceback.print_exc()
 
         input("\nPress Enter to return to menu...")
 

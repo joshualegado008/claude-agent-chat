@@ -116,3 +116,46 @@ web_browsing:
     - "instagram.com"
     - "tiktok.com"
     # Add more domains to block as needed
+
+# ============================================================================
+# PHASE 1: DYNAMIC MULTI-AGENT SYSTEM (v0.4.0+)
+# ============================================================================
+
+# OpenAI for topic refinement
+openai:
+  model: "gpt-4o-mini"
+  temperature: 0.7
+  max_tokens: 1000
+
+# Agent factory settings
+agent_factory:
+  max_concurrent_agents: 5
+  default_model: "claude-sonnet-4-5-20250929"
+  enable_dynamic_creation: true
+
+# Lifecycle settings
+agent_lifecycle:
+  warm_days: 7      # Warm tier if used within N days
+  cold_days: 90     # Cold tier if used within N days
+  archive_days: 180 # Archive after N days unused
+  enable_auto_retirement: false  # Disabled by default for safety
+
+# Rating system
+rating:
+  enable_post_conversation_prompt: true
+  skip_if_short_conversation: true
+  min_turns_for_rating: 3
+
+  # Weighted scoring (must sum to 1.0)
+  weights:
+    helpfulness: 0.30
+    accuracy: 0.25
+    relevance: 0.20
+    clarity: 0.15
+    collaboration: 0.10
+
+# Taxonomy
+taxonomy:
+  max_agents_per_class: 10
+  similarity_threshold: 0.85
+  enable_strict_deduplication: true

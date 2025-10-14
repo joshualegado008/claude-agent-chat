@@ -91,15 +91,20 @@ class AgentRunner:
             # Build conversation history for this agent
             messages = self._build_messages(context_messages, new_message)
 
-            # Get agent's system prompt
+            # Get agent's system prompt (lazy-load if needed for dynamic agents)
             system_prompt = self.agent_prompts.get(agent_id)
             if not system_prompt:
-                raise ValueError(f"No system prompt found for agent: {agent_id}")
+                # Try to load it from disk (for dynamic agents)
+                try:
+                    system_prompt = self._load_agent_prompt(agent_id)
+                    self.agent_prompts[agent_id] = system_prompt  # Cache it
+                except FileNotFoundError:
+                    raise ValueError(f"No system prompt found for agent: {agent_id}")
 
             # Get model configuration from settings first, then fall back to config
             model = self.settings.get_agent_model(agent_id)
             agent_config = self.config.get('agents', {}).get(agent_id, {})
-            max_tokens = agent_config.get('max_tokens', 2048)
+            max_tokens = agent_config.get('max_tokens', 8000)  # Must be > thinking_budget (5000)
             temperature = agent_config.get('temperature', 1.0)
 
             # Make API call
@@ -254,15 +259,20 @@ class AgentRunner:
             # Build conversation history for this agent
             messages = self._build_messages(context_messages, new_message)
 
-            # Get agent's system prompt
+            # Get agent's system prompt (lazy-load if needed for dynamic agents)
             system_prompt = self.agent_prompts.get(agent_id)
             if not system_prompt:
-                raise ValueError(f"No system prompt found for agent: {agent_id}")
+                # Try to load it from disk (for dynamic agents)
+                try:
+                    system_prompt = self._load_agent_prompt(agent_id)
+                    self.agent_prompts[agent_id] = system_prompt  # Cache it
+                except FileNotFoundError:
+                    raise ValueError(f"No system prompt found for agent: {agent_id}")
 
             # Get model configuration from settings first, then fall back to config
             model = self.settings.get_agent_model(agent_id)
             agent_config = self.config.get('agents', {}).get(agent_id, {})
-            max_tokens = agent_config.get('max_tokens', 2048)
+            max_tokens = agent_config.get('max_tokens', 8000)  # Must be > thinking_budget (5000)
             temperature = agent_config.get('temperature', 1.0)
 
             # Build thinking configuration

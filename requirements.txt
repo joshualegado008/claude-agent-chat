@@ -10,6 +10,10 @@ qdrant-client>=1.7.0
 # AI services
 openai>=1.12.0  # For GPT-4o-mini metadata extraction and embeddings
 
+# Phase 1: Dynamic Multi-Agent System
+scikit-learn>=1.3.0  # For similarity detection and classification
+numpy>=1.24.0  # For embeddings and numerical operations
+
 # Optional: For alternative embedding models
 # cohere>=4.0.0  # For Cohere embeddings
 # sentence-transformers>=2.2.0  # For local embeddings

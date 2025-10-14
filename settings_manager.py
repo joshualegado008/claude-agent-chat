@@ -104,15 +104,62 @@ class SettingsManager:
 
         return self.settings.get('openai_api_key') or None
 
+    def _update_env_file(self, key_name: str, value: str):
+        """
+        Update a key in the .env file.
+
+        Args:
+            key_name: Environment variable name (e.g., 'OPENAI_API_KEY')
+            value: New value for the key
+        """
+        env_file = Path('.env')
+
+        if not env_file.exists():
+            # Create new .env file
+            with open(env_file, 'w') as f:
+                f.write(f"{key_name}={value}\n")
+            return
+
+        # Read existing .env
+        with open(env_file, 'r') as f:
+            lines = f.readlines()
+
+        # Update or add the key
+        key_found = False
+        for i, line in enumerate(lines):
+            if line.strip().startswith(f"{key_name}="):
+                lines[i] = f"{key_name}={value}\n"
+                key_found = True
+                break
+
+        if not key_found:
+            lines.append(f"{key_name}={value}\n")
+
+        # Write back
+        with open(env_file, 'w') as f:
+            f.writelines(lines)
+
     def set_anthropic_api_key(self, api_key: str):
-        """Set Anthropic API key."""
+        """Set Anthropic API key in both settings and .env file."""
         self.settings['anthropic_api_key'] = api_key
         self.save_settings()
 
+        # Also update .env file so environment variable matches
+        self._update_env_file('ANTHROPIC_API_KEY', api_key)
+
+        # Update the current process environment variable
+        os.environ['ANTHROPIC_API_KEY'] = api_key
+
     def set_openai_api_key(self, api_key: str):
-        """Set OpenAI API key."""
+        """Set OpenAI API key in both settings and .env file."""
         self.settings['openai_api_key'] = api_key
         self.save_settings()
+
+        # Also update .env file so environment variable matches
+        self._update_env_file('OPENAI_API_KEY', api_key)
+
+        # Update the current process environment variable
+        os.environ['OPENAI_API_KEY'] = api_key
 
     def get_agent_model(self, agent_id: str) -> str:
         """

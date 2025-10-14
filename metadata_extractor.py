@@ -179,6 +179,126 @@ Provide thoughtful analysis. If no entities found, use empty arrays."""
             print(f"⚠️  Failed to analyze conversation: {e}")
             return self._fallback_metadata(title, total_turns)
 
+    async def refine_topic(self, raw_topic: str) -> str:
+        """
+        Refine raw user topic into a clear, engaging discussion question.
+
+        Takes simple user input like "ancient canaanite eye diseases" and
+        expands it into a clear discussion prompt like:
+        "Explore ancient Canaanite beliefs about eye health, historical evidence
+        of eye diseases, and modern medical understanding."
+
+        Args:
+            raw_topic: Raw user input (can be brief, informal)
+
+        Returns:
+            str: Refined, clear discussion question/prompt
+        """
+        system_prompt = """Refine the given topic into a clear, engaging discussion prompt.
+
+The refined prompt should:
+- Be 1-2 sentences
+- Be clear and specific
+- Encourage thoughtful multi-perspective discussion
+- Expand on the original topic while staying focused
+- Be appropriate for expert-level discussion
+
+Examples:
+Input: "photosynthesis"
+Output: "Explore the biochemical processes of photosynthesis, its evolutionary development, and its role in Earth's ecosystems."
+
+Input: "ancient canaanite eye diseases"
+Output: "Discuss ancient Canaanite beliefs about eye health, historical evidence of eye diseases in the ancient Near East, and how modern ophthalmology interprets these historical accounts."
+
+Input: "quantum computing"
+Output: "Examine the principles of quantum computing, current technological challenges, and potential applications in cryptography and drug discovery."
+"""
+
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Topic: {raw_topic}"}
+                ],
+                max_tokens=150,
+                temperature=0.7
+            )
+
+            refined = response.choices[0].message.content.strip()
+
+            # Remove quotes if present
+            if refined.startswith('"') and refined.endswith('"'):
+                refined = refined[1:-1]
+
+            return refined
+
+        except Exception as e:
+            print(f"⚠️  Failed to refine topic: {e}")
+            # Fallback: Just capitalize and add context
+            return f"Discuss {raw_topic} from multiple expert perspectives."
+
+    async def analyze_expertise_requirements(self, topic: str) -> Dict:
+        """
+        Analyze topic and identify required expertise for dynamic agent selection.
+        This is for Phase 1+ multi-agent system.
+
+        Args:
+            topic: Raw user topic/question
+
+        Returns:
+            Dict with:
+                - refined_topic: str (clear discussion question)
+                - expertise_needed: List[str] (specific expertise domains)
+                - suggested_domains: List[str] (high-level domain names)
+        """
+        system_prompt = """Analyze this topic and identify expertise requirements for a multi-agent discussion.
+
+Return a JSON object with this structure:
+{
+  "refined_topic": "Clear 1-2 sentence discussion question",
+  "expertise_needed": ["Specific Expertise 1", "Specific Expertise 2", "Specific Expertise 3"],
+  "suggested_domains": ["DOMAIN1", "DOMAIN2"]
+}
+
+For expertise_needed, provide 2-3 specific expert roles like:
+- "Ancient Near Eastern History (Canaanite period)"
+- "Ophthalmology (retinal diseases)"
+- "Quantum Computing"
+
+For suggested_domains, choose from:
+SCIENCE, MEDICINE, HUMANITIES, TECHNOLOGY, BUSINESS, LAW, ARTS
+
+Be specific and thoughtful."""
+
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Topic: {topic}"}
+                ],
+                max_tokens=300,
+                temperature=0.7,
+                response_format={"type": "json_object"}
+            )
+
+            result = json.loads(response.choices[0].message.content)
+
+            return {
+                'refined_topic': result.get('refined_topic', topic),
+                'expertise_needed': result.get('expertise_needed', ["General Expert"]),
+                'suggested_domains': result.get('suggested_domains', ["HUMANITIES"])
+            }
+        except Exception as e:
+            print(f"⚠️  Failed to analyze expertise requirements: {e}")
+            # Fallback
+            return {
+                'refined_topic': topic,
+                'expertise_needed': ["General Expert"],
+                'suggested_domains': ["HUMANITIES"]
+            }
+
     def _fallback_metadata(self, title: str, total_turns: int) -> Dict:
         """Generate fallback metadata if AI analysis fails."""
         return {
