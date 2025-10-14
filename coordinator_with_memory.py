@@ -418,24 +418,30 @@ def run_conversation(
         print("Starting New Conversation")
         print("="*60)
         print(f"Title: {title}")
-        print(f"Agents: {config['agent_a']['name']} ↔ {config['agent_b']['name']}")
 
-        # Show model info for each agent
-        agent_a_model = settings.get_agent_model('agent_a')
-        agent_b_model = settings.get_agent_model('agent_b')
-        agent_a_display = CostCalculator._get_display_name(agent_a_model)
-        agent_b_display = CostCalculator._get_display_name(agent_b_model)
+        # Show agent info - dynamic or static
+        if agent_coordinator:
+            print(f"Agents: ✨ Dynamic experts (will be selected based on topic)")
+            print(f"\nℹ️  Expert agents will be created automatically based on conversation topic")
+        else:
+            print(f"Agents: {config['agent_a']['name']} ↔ {config['agent_b']['name']} (static)")
 
-        print(f"\nModels:")
-        print(f"  {config['agent_a']['name']}: {agent_a_display}")
-        print(f"  {config['agent_b']['name']}: {agent_b_display}")
+            # Show model info for each agent (static mode only)
+            agent_a_model = settings.get_agent_model('agent_a')
+            agent_b_model = settings.get_agent_model('agent_b')
+            agent_a_display = CostCalculator._get_display_name(agent_a_model)
+            agent_b_display = CostCalculator._get_display_name(agent_b_model)
 
-        # Show pricing info
-        agent_a_pricing = CostCalculator.get_model_pricing(agent_a_model)
-        agent_b_pricing = CostCalculator.get_model_pricing(agent_b_model)
-        print(f"\nPricing (per million tokens):")
-        print(f"  {config['agent_a']['name']}: ${agent_a_pricing[0]:.2f}/${agent_a_pricing[1]:.2f} (in/out)")
-        print(f"  {config['agent_b']['name']}: ${agent_b_pricing[0]:.2f}/${agent_b_pricing[1]:.2f} (in/out)")
+            print(f"\nModels:")
+            print(f"  {config['agent_a']['name']}: {agent_a_display}")
+            print(f"  {config['agent_b']['name']}: {agent_b_display}")
+
+            # Show pricing info
+            agent_a_pricing = CostCalculator.get_model_pricing(agent_a_model)
+            agent_b_pricing = CostCalculator.get_model_pricing(agent_b_model)
+            print(f"\nPricing (per million tokens):")
+            print(f"  {config['agent_a']['name']}: ${agent_a_pricing[0]:.2f}/${agent_a_pricing[1]:.2f} (in/out)")
+            print(f"  {config['agent_b']['name']}: ${agent_b_pricing[0]:.2f}/${agent_b_pricing[1]:.2f} (in/out)")
 
         print(f"\nMax turns: {config['max_turns']}")
         print("="*60)
