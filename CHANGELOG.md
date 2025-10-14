@@ -9,6 +9,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.1] - 2025-10-13
+
+### Fixed
+
+#### 🐛 Bug #1: Classification Fallback to Cardiology
+- **Root cause**: Non-medical topics were incorrectly defaulting to "Cardiology" due to poor keyword ordering and fallback logic
+- **Symptoms**: Mandarin language teaching classified as Cardiology instead of Linguistics, cultural topics misclassified
+- **Fixes applied**:
+  - Expanded taxonomy from 20 to 22 classes (added Psychology and Education to HUMANITIES domain)
+  - Reordered keyword matching to check specific terms before generic ones (e.g., "machine learning" before "learning", "language teaching" before "teaching")
+  - Added comprehensive debug logging showing classification decisions with emoji indicators
+  - Added API-based classification fallback using Claude for ambiguous cases
+  - Added context-aware checks to distinguish between similar keywords (e.g., language teaching vs general teaching)
+  - Medicine classification now requires explicit medical keywords, not just domain proximity
+- **Test results**: ✅ 14/14 classification tests passed
+- **Impact**: Mandarin/Chinese topics now correctly classify as Linguistics, cultural topics as Cultural Studies, no more Cardiology false positives
+
+#### 🐛 Bug #2: Name Race Condition (Duplicate Agent Names)
+- **Root cause**: Async race condition during concurrent agent creation - multiple agents checked `used_names` before any registered their names
+- **Symptoms**: Duplicate names like "Dr. Mei-Ling Chen" appearing for different agents during concurrent creation
+- **Fixes applied**:
+  - Added `asyncio.Lock` (`_name_lock`) to protect `used_names` set during name checking and registration
+  - Added `used_names: Set[str]` attribute to track all agent names in memory
+  - Added `_load_existing_names()` method to scan disk and load existing agent names at factory initialization
+  - Added retry logic (up to 3 attempts) with updated prompts listing recently-used names to avoid
+  - Added fallback numbering if all retries fail (e.g., "Dr. Smith 2", "Dr. Smith 3")
+  - Wrapped name uniqueness check in `async with self._name_lock:` to ensure atomic check-and-register
+- **Test results**: ✅ All tests passed - 5 agents created concurrently with 0 duplicates, retry logic successfully regenerated 2 duplicate names
+- **Impact**: Guarantees unique agent names even during high-concurrency scenarios
+
+### Changed
+
+- **Agent taxonomy**: Now 22 classes instead of 20 (added Psychology and Education to HUMANITIES)
+- **Classification logging**: Added comprehensive debug output showing keyword matches, confidence scores, and decision paths
+- **Classification priority**: Reordered checks so specific terms (machine learning, bilingual, language teaching) match before generic terms (learning, teaching)
+- **Agent factory imports**: Added `asyncio` import for async lock support
+
+### Added
+
+- **Test suites**: Added `test_classification_fix.py` (14 test cases) and `test_name_uniqueness_fix.py` (concurrent creation testing)
+- **Classification fallback**: API-based classification using Claude for ambiguous cases when keyword confidence < 0.3
+- **Name loading**: Factory now loads existing agent names from disk at initialization to prevent duplicates across sessions
+
+---
+
 ## [0.4.0] - 2025-10-13
 
 ### Added

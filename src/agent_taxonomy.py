@@ -3,8 +3,8 @@ Agent classification and taxonomy system.
 Organizes agents by Domain > Class > Specialization.
 
 This module provides:
-- 20 agent classes across 7 domains
-- Classification based on keyword matching
+- 22 agent classes across 7 domains
+- Classification based on keyword matching with API fallback
 - Similarity detection for deduplication
 - Capacity management per class
 """
@@ -75,7 +75,7 @@ class AgentTaxonomy:
             keywords={"cancer", "oncology", "tumor", "chemotherapy", "malignancy"}
         ))
 
-        # HUMANITIES (4 classes)
+        # HUMANITIES (8 classes) - EXPANDED
         self._add_class(AgentClass(
             name="Ancient Near East",
             domain=AgentDomain.HUMANITIES,
@@ -109,7 +109,43 @@ class AgentTaxonomy:
             parent="Humanities",
             description="Language structure and evolution",
             typical_skills=["phonetics", "syntax", "semantics", "language families"],
-            keywords={"language", "linguistics", "phonetics", "syntax", "grammar", "morphology"}
+            keywords={"language", "linguistics", "phonetics", "syntax", "grammar", "morphology", "mandarin", "chinese", "bilingual"}
+        ))
+
+        self._add_class(AgentClass(
+            name="Cultural Studies",
+            domain=AgentDomain.HUMANITIES,
+            parent="Humanities",
+            description="Cultural analysis and cross-cultural studies",
+            typical_skills=["cultural analysis", "ethnography", "intercultural communication"],
+            keywords={"culture", "cultural", "intercultural", "cross-cultural", "ethnography", "society", "tradition", "heritage"}
+        ))
+
+        self._add_class(AgentClass(
+            name="History",
+            domain=AgentDomain.HUMANITIES,
+            parent="Humanities",
+            description="General historical studies",
+            typical_skills=["historical research", "historiography", "archival research"],
+            keywords={"history", "historical", "historian", "past", "civilization", "era", "period"}
+        ))
+
+        self._add_class(AgentClass(
+            name="Psychology",
+            domain=AgentDomain.HUMANITIES,
+            parent="Humanities",
+            description="Human behavior and mental processes",
+            typical_skills=["cognitive psychology", "behavioral analysis", "mental health", "therapy"],
+            keywords={"psychology", "psychological", "cognitive", "behavioral", "mental", "therapy", "counseling"}
+        ))
+
+        self._add_class(AgentClass(
+            name="Education",
+            domain=AgentDomain.HUMANITIES,
+            parent="Humanities",
+            description="Teaching, learning, and pedagogy",
+            typical_skills=["curriculum design", "pedagogy", "learning theory", "assessment"],
+            keywords={"education", "teaching", "pedagogy", "curriculum", "learning", "classroom", "student", "instruction"}
         ))
 
         # SCIENCE (4 classes)
@@ -225,7 +261,7 @@ class AgentTaxonomy:
             keywords={"music", "musical", "composition", "harmony", "melody", "song"}
         ))
 
-        # Total: 20 classes across 7 domains
+        # Total: 22 classes across 7 domains (8 in HUMANITIES, 4 in MEDICINE, 4 in SCIENCE, 3 in TECHNOLOGY, 2 in BUSINESS, 1 in LAW, 2 in ARTS)
 
     def _add_class(self, agent_class: AgentClass):
         """Add a class to the taxonomy."""
@@ -233,7 +269,7 @@ class AgentTaxonomy:
 
     def classify_expertise(self, description: str) -> dict:
         """
-        Auto-classify expertise into taxonomy using keyword matching.
+        Auto-classify expertise into taxonomy using keyword matching with API fallback.
 
         Args:
             description: Expertise description
@@ -246,10 +282,194 @@ class AgentTaxonomy:
                 'confidence': float
             }
         """
+        print(f"\n🔍 Classifying expertise: '{description}'")
         description_lower = description.lower()
         description_words = set(description_lower.split())
 
-        # Score each class
+        # Try keyword-based classification first
+        result = self._classify_by_keywords(description_lower, description_words)
+
+        if result and result['confidence'] >= 0.3:
+            print(f"   ✅ Keyword match: {result['primary_class']} ({result['domain'].value}) - confidence: {result['confidence']:.2f}")
+            return result
+
+        print(f"   ⚠️  Low confidence ({result['confidence']:.2f} if result else 0.0) - trying API classification...")
+
+        # Fallback to API-based classification
+        api_result = self._classify_via_api(description)
+        if api_result:
+            print(f"   ✅ API classification: {api_result['primary_class']} ({api_result['domain'].value})")
+            return api_result
+
+        print(f"   ❌ API classification failed - returning None")
+        return None
+
+    def _classify_by_keywords(self, description_lower: str, description_words: set) -> dict:
+        """
+        Classify expertise using comprehensive keyword matching rules.
+
+        Returns classification dict or None if no good match found.
+        """
+        # Extensive keyword-based classification rules
+        # NOTE: Order matters! More specific checks should come FIRST
+
+        # TECHNOLOGY - Check AI/ML before "learning" keyword
+        if any(phrase in description_lower for phrase in ['machine learning', 'deep learning', 'artificial intelligence', 'neural network']):
+            print(f"      → AI/ML keywords found")
+            return {
+                'domain': AgentDomain.TECHNOLOGY,
+                'primary_class': 'AI and Machine Learning',
+                'subclass': 'Technology',
+                'confidence': 0.9
+            }
+
+        if any(word in description_lower for word in ['software', 'programming', 'code', 'developer', 'engineering']):
+            print(f"      → Software Engineering keywords found")
+            return {
+                'domain': AgentDomain.TECHNOLOGY,
+                'primary_class': 'Software Engineering',
+                'subclass': 'Technology',
+                'confidence': 0.9
+            }
+
+        # LINGUISTICS - Check before Education/Cultural (since they may share keywords)
+        if any(word in description_lower for word in ['mandarin', 'cantonese', 'bilingual', 'multilingual']):
+            print(f"      → Linguistics keywords found (language/bilingual)")
+            return {
+                'domain': AgentDomain.HUMANITIES,
+                'primary_class': 'Linguistics',
+                'subclass': 'Humanities',
+                'confidence': 0.9
+            }
+
+        # Check for "language learning" or "chinese language" as phrases
+        if 'language learning' in description_lower or 'chinese language' in description_lower or 'language teaching' in description_lower:
+            print(f"      → Linguistics keywords found (language learning/teaching)")
+            return {
+                'domain': AgentDomain.HUMANITIES,
+                'primary_class': 'Linguistics',
+                'subclass': 'Humanities',
+                'confidence': 0.9
+            }
+
+        if any(word in description_lower for word in ['linguistics', 'phonetics', 'syntax', 'grammar', 'morphology', 'language structure']):
+            print(f"      → Linguistics keywords found (technical)")
+            return {
+                'domain': AgentDomain.HUMANITIES,
+                'primary_class': 'Linguistics',
+                'subclass': 'Humanities',
+                'confidence': 0.9
+            }
+
+        # CULTURAL STUDIES - Check before "chinese" alone triggers something else
+        if any(word in description_lower for word in ['cultural', 'culture', 'intercultural', 'cross-cultural', 'ethnography', 'anthropology']):
+            # But NOT if it's about language teaching (already handled above)
+            if 'language' not in description_lower or 'cultural' in description_lower:
+                print(f"      → Cultural Studies keywords found")
+                return {
+                    'domain': AgentDomain.HUMANITIES,
+                    'primary_class': 'Cultural Studies',
+                    'subclass': 'Humanities',
+                    'confidence': 0.85
+                }
+
+        # EDUCATION - Check after Linguistics/Cultural to avoid false matches
+        if any(word in description_lower for word in ['pedagogy', 'curriculum', 'education', 'classroom']):
+            print(f"      → Education keywords found")
+            return {
+                'domain': AgentDomain.HUMANITIES,
+                'primary_class': 'Education',
+                'subclass': 'Humanities',
+                'confidence': 0.85
+            }
+
+        # "teaching" alone could be Education OR Linguistics, check context
+        if 'teaching' in description_lower:
+            # If it's about teaching a language, it's Linguistics
+            if any(word in description_lower for word in ['language', 'mandarin', 'chinese', 'english', 'spanish', 'french']):
+                print(f"      → Linguistics keywords found (language teaching)")
+                return {
+                    'domain': AgentDomain.HUMANITIES,
+                    'primary_class': 'Linguistics',
+                    'subclass': 'Humanities',
+                    'confidence': 0.85
+                }
+            # Otherwise it's Education
+            print(f"      → Education keywords found (teaching)")
+            return {
+                'domain': AgentDomain.HUMANITIES,
+                'primary_class': 'Education',
+                'subclass': 'Humanities',
+                'confidence': 0.8
+            }
+
+        # PSYCHOLOGY
+        if any(word in description_lower for word in ['psychology', 'psychological', 'cognitive', 'behavioral', 'mental health', 'therapy']):
+            print(f"      → Psychology keywords found")
+            return {
+                'domain': AgentDomain.HUMANITIES,
+                'primary_class': 'Psychology',
+                'subclass': 'Humanities',
+                'confidence': 0.9
+            }
+
+        # HISTORY
+        if any(word in description_lower for word in ['history', 'historical', 'historian', 'past', 'civilization', 'era', 'period', 'ancient']):
+            print(f"      → History keywords found")
+            return {
+                'domain': AgentDomain.HUMANITIES,
+                'primary_class': 'History',
+                'subclass': 'Humanities',
+                'confidence': 0.85
+            }
+
+        # MEDICINE (only if explicitly medical)
+        if any(word in description_lower for word in ['medical', 'medicine', 'doctor', 'physician', 'clinical', 'patient', 'disease', 'treatment']):
+            # Check for specific medical specialties
+            if any(word in description_lower for word in ['heart', 'cardiac', 'cardiovascular', 'cardiology']):
+                print(f"      → Cardiology keywords found")
+                return {
+                    'domain': AgentDomain.MEDICINE,
+                    'primary_class': 'Cardiology',
+                    'subclass': 'Medicine',
+                    'confidence': 0.9
+                }
+            elif any(word in description_lower for word in ['brain', 'neural', 'neurology', 'nervous', 'neurological']):
+                print(f"      → Neurology keywords found")
+                return {
+                    'domain': AgentDomain.MEDICINE,
+                    'primary_class': 'Neurology',
+                    'subclass': 'Medicine',
+                    'confidence': 0.9
+                }
+            elif any(word in description_lower for word in ['eye', 'vision', 'ophthalmology', 'retina', 'ocular']):
+                print(f"      → Ophthalmology keywords found")
+                return {
+                    'domain': AgentDomain.MEDICINE,
+                    'primary_class': 'Ophthalmology',
+                    'subclass': 'Medicine',
+                    'confidence': 0.9
+                }
+            elif any(word in description_lower for word in ['cancer', 'oncology', 'tumor', 'chemotherapy']):
+                print(f"      → Oncology keywords found")
+                return {
+                    'domain': AgentDomain.MEDICINE,
+                    'primary_class': 'Oncology',
+                    'subclass': 'Medicine',
+                    'confidence': 0.9
+                }
+
+        # BIOLOGY
+        if any(word in description_lower for word in ['biology', 'genetics', 'evolution', 'cells', 'organisms', 'ecology', 'dna']):
+            print(f"      → Biology keywords found")
+            return {
+                'domain': AgentDomain.SCIENCE,
+                'primary_class': 'Biology',
+                'subclass': 'Science',
+                'confidence': 0.9
+            }
+
+        # Fallback: Score each class
         scores = []
         for class_name, agent_class in self.classes.items():
             score = 0
@@ -267,29 +487,84 @@ class AgentTaxonomy:
                 if skill.lower() in description_lower:
                     score += 5
 
-            scores.append((agent_class, score))
+            if score > 0:
+                scores.append((agent_class, score))
 
-        # Get best match
+        # Get best match only if score is meaningful
         if scores:
             scores.sort(key=lambda x: x[1], reverse=True)
             best_class, best_score = scores[0]
 
-            confidence = min(1.0, best_score / 50.0)  # Normalize
+            # Only return if confidence is reasonable
+            confidence = min(1.0, best_score / 50.0)
 
+            if confidence >= 0.3:
+                print(f"      → Fallback scoring: {best_class.name} (score: {best_score}, confidence: {confidence:.2f})")
+                return {
+                    'domain': best_class.domain,
+                    'primary_class': best_class.name,
+                    'subclass': best_class.parent or '',
+                    'confidence': confidence
+                }
+
+        print(f"      → No good keyword match found")
+        return None
+
+    def _classify_via_api(self, description: str) -> dict:
+        """
+        Use Claude API to classify ambiguous expertise descriptions.
+
+        Returns classification dict or None if API call fails.
+        """
+        try:
+            import anthropic
+            import os
+
+            api_key = os.getenv('ANTHROPIC_API_KEY')
+            if not api_key:
+                print(f"      ⚠️  No Anthropic API key found")
+                return None
+
+            client = anthropic.Anthropic(api_key=api_key)
+
+            # Build list of available classes
+            classes_list = []
+            for class_name, agent_class in self.classes.items():
+                classes_list.append(f"- {class_name} ({agent_class.domain.value}): {agent_class.description}")
+
+            prompt = f"""Given this expertise description:
+"{description}"
+
+Classify it into ONE of these classes:
+{chr(10).join(classes_list)}
+
+Respond with ONLY the class name (e.g., "Linguistics", "Cultural Studies", "History", etc.).
+If none fit well, respond with "NONE".
+"""
+
+            response = client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=50,
+                messages=[{"role": "user", "content": prompt}]
+            )
+
+            classification = response.content[0].text.strip()
+
+            if classification == "NONE" or classification not in self.classes:
+                print(f"      ⚠️  API returned: {classification}")
+                return None
+
+            agent_class = self.classes[classification]
             return {
-                'domain': best_class.domain,
-                'primary_class': best_class.name,
-                'subclass': best_class.parent or '',
-                'confidence': confidence
+                'domain': agent_class.domain,
+                'primary_class': agent_class.name,
+                'subclass': agent_class.parent or '',
+                'confidence': 0.75  # API-based gets medium-high confidence
             }
 
-        # Default fallback
-        return {
-            'domain': AgentDomain.HUMANITIES,
-            'primary_class': 'General',
-            'subclass': '',
-            'confidence': 0.5
-        }
+        except Exception as e:
+            print(f"      ❌ API classification error: {e}")
+            return None
 
     def find_similar_agents(self, description: str,
                            threshold: float = 0.85) -> List[Tuple[AgentProfile, float]]:

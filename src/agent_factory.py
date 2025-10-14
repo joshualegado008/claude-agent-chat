@@ -15,6 +15,7 @@ import os
 import uuid
 import json
 import hashlib
+import asyncio
 from pathlib import Path
 from typing import Optional, Dict, List, Set
 from datetime import datetime
@@ -58,6 +59,44 @@ class AgentFactory:
         # Cost tracking
         self.total_creation_cost = 0.0
         self.agents_created = 0
+
+        # Name uniqueness tracking (to prevent duplicate names)
+        self.used_names: Set[str] = set()
+        self._name_lock = asyncio.Lock()
+
+        # Load existing agent names from disk
+        self._load_existing_names()
+
+    def _load_existing_names(self) -> None:
+        """
+        Load existing agent names from disk to prevent duplicates.
+
+        Scans the dynamic agents directory and extracts names from
+        agent metadata files or markdown headers.
+        """
+        if not self.agents_dir.exists():
+            return
+
+        # Scan all .md files in dynamic agents directory
+        for agent_file in self.agents_dir.glob("*.md"):
+            try:
+                with open(agent_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+
+                # Extract name from first markdown header
+                lines = content.split('\n')
+                for line in lines:
+                    if line.startswith('# '):
+                        # Extract name (e.g., "# Dr. Jane Smith - Expert in X")
+                        name = line[2:].split(' - ')[0].strip()
+                        self.used_names.add(name)
+                        break
+
+            except Exception as e:
+                print(f"   ⚠️  Warning: Failed to read {agent_file.name}: {e}")
+
+        if self.used_names:
+            print(f"   📝 Loaded {len(self.used_names)} existing agent names")
 
     async def create_agent(
         self,
@@ -106,7 +145,7 @@ class AgentFactory:
 
         print(f"   └─ Classified as: {primary_class} ({domain.value})")
 
-        # Step 2: Generate agent details using Claude API
+        # Step 2: Generate agent details using Claude API (with uniqueness check)
         try:
             agent_details = await self._generate_agent_details(
                 expertise_description,
@@ -114,6 +153,11 @@ class AgentFactory:
                 context
             )
             print(f"   └─ Generated: {agent_details['name']}")
+
+            # Register the name so other concurrent creations don't reuse it
+            async with self._name_lock:
+                self.used_names.add(agent_details['name'])
+
         except Exception as e:
             print(f"   ❌ Failed to generate details: {e}")
             raise
@@ -184,10 +228,12 @@ class AgentFactory:
         context: Optional[str] = None
     ) -> Dict:
         """
-        Generate agent details using Claude API.
+        Generate agent details using Claude API with uniqueness checking.
+
+        Retries up to 3 times if a duplicate name is generated.
 
         Returns dict with:
-        - name: Agent name with appropriate title
+        - name: Agent name with appropriate title (guaranteed unique)
         - core_skills: List of 3-5 skills
         - keywords: List of 5-8 keywords
         - personality_traits: List of 2-3 traits
@@ -197,12 +243,21 @@ class AgentFactory:
         domain = classification['domain'].value
         primary_class = classification['primary_class']
 
-        prompt = f"""Create a detailed agent profile for a specialist with this expertise:
+        max_retries = 3
+        for attempt in range(max_retries):
+            # Check for duplicate names and adjust prompt
+            avoid_names = ""
+            if attempt > 0:
+                async with self._name_lock:
+                    recent_names = list(self.used_names)[-10:]  # Last 10 names
+                avoid_names = f"\n\n**IMPORTANT**: These names are already taken, choose a DIFFERENT name:\n{', '.join(recent_names)}"
+
+            prompt = f"""Create a detailed agent profile for a specialist with this expertise:
 
 **Expertise**: {expertise_description}
 **Domain**: {domain}
 **Classification**: {primary_class}
-{f"**Context**: {context}" if context else ""}
+{f"**Context**: {context}" if context else ""}{avoid_names}
 
 Generate a complete agent profile with the following:
 
@@ -230,44 +285,66 @@ Return ONLY a JSON object with this exact structure:
 
 Be creative but realistic. The name should sound like a real expert in this field."""
 
-        try:
-            response = self.client.messages.create(
-                model=self.model,
-                max_tokens=1000,
-                temperature=0.8,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ]
-            )
+            try:
+                response = self.client.messages.create(
+                    model=self.model,
+                    max_tokens=1000,
+                    temperature=0.8,
+                    messages=[
+                        {"role": "user", "content": prompt}
+                    ]
+                )
 
-            # Extract usage and calculate cost
-            input_tokens = response.usage.input_tokens
-            output_tokens = response.usage.output_tokens
-            cost = self._calculate_cost(input_tokens, output_tokens)
+                # Extract usage and calculate cost
+                input_tokens = response.usage.input_tokens
+                output_tokens = response.usage.output_tokens
+                cost = self._calculate_cost(input_tokens, output_tokens)
 
-            # Parse JSON response
-            content = response.content[0].text.strip()
+                # Parse JSON response
+                content = response.content[0].text.strip()
 
-            # Handle markdown code blocks if present
-            if content.startswith("```json"):
-                content = content.split("```json")[1].split("```")[0].strip()
-            elif content.startswith("```"):
-                content = content.split("```")[1].split("```")[0].strip()
+                # Handle markdown code blocks if present
+                if content.startswith("```json"):
+                    content = content.split("```json")[1].split("```")[0].strip()
+                elif content.startswith("```"):
+                    content = content.split("```")[1].split("```")[0].strip()
 
-            details = json.loads(content)
-            details['creation_cost'] = cost
+                details = json.loads(content)
+                details['creation_cost'] = cost
 
-            return details
+                # Check for name uniqueness (with lock)
+                async with self._name_lock:
+                    generated_name = details['name']
+                    if generated_name in self.used_names:
+                        if attempt < max_retries - 1:
+                            print(f"      ⚠️  Duplicate name '{generated_name}' - retrying (attempt {attempt + 2}/{max_retries})")
+                            continue  # Retry with updated prompt
+                        else:
+                            # Last attempt: append number to make unique
+                            counter = 2
+                            unique_name = f"{generated_name} {counter}"
+                            while unique_name in self.used_names:
+                                counter += 1
+                                unique_name = f"{generated_name} {counter}"
+                            details['name'] = unique_name
+                            print(f"      ⚠️  Duplicate name - using '{unique_name}'")
 
-        except json.JSONDecodeError as e:
-            print(f"   ⚠️  JSON parse error: {e}")
-            print(f"   Response: {content[:200]}")
-            # Fallback details
-            return self._generate_fallback_details(expertise_description, cost)
-        except Exception as e:
-            print(f"   ⚠️  API error: {e}")
-            # Fallback with zero cost
-            return self._generate_fallback_details(expertise_description, 0.0)
+                return details
+
+            except json.JSONDecodeError as e:
+                print(f"   ⚠️  JSON parse error: {e}")
+                print(f"   Response: {content[:200]}")
+                # Fallback details
+                return self._generate_fallback_details(expertise_description, cost)
+            except Exception as e:
+                print(f"   ⚠️  API error: {e}")
+                # Fallback with zero cost
+                if attempt < max_retries - 1:
+                    continue  # Retry
+                return self._generate_fallback_details(expertise_description, 0.0)
+
+        # Should never reach here, but just in case
+        return self._generate_fallback_details(expertise_description, 0.0)
 
     async def _generate_system_prompt(
         self,
