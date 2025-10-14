@@ -311,6 +311,9 @@ class ConversationMenu:
         """Handle settings configuration."""
         settings = get_settings()
 
+        # Initialize agent roster manager (lazy load)
+        agent_roster = None
+
         while True:
             print("\n" + "="*60)
             print("⚙️  Settings")
@@ -323,9 +326,11 @@ class ConversationMenu:
             print("  4. 👁️  View Current Configuration")
             print("  5. 🧪 Test API Connections")
             print("  6. 🔧 Run Setup Wizard")
-            print("  7. ◀️  Back to Main Menu")
+            print("  7. 👥 View Agent Roster")
+            print("  8. 📊 Agent Statistics")
+            print("  9. ◀️  Back to Main Menu")
 
-            choice = input("\nEnter your choice (1-7): ").strip()
+            choice = input("\nEnter your choice (1-9): ").strip()
 
             if choice == '1':
                 self._configure_api_keys(settings)
@@ -341,9 +346,24 @@ class ConversationMenu:
             elif choice == '6':
                 settings.interactive_setup()
             elif choice == '7':
+                # View Agent Roster
+                if not agent_roster:
+                    from agent_roster import AgentRoster
+                    from src.persistence import DataStore
+                    agent_roster = AgentRoster(DataStore())
+                self._handle_agent_roster(agent_roster)
+            elif choice == '8':
+                # Agent Statistics
+                if not agent_roster:
+                    from agent_roster import AgentRoster
+                    from src.persistence import DataStore
+                    agent_roster = AgentRoster(DataStore())
+                agent_roster.show_statistics_dashboard()
+                input("\nPress Enter to continue...")
+            elif choice == '9':
                 break
             else:
-                print("\n❌ Invalid choice. Please enter 1-7.")
+                print("\n❌ Invalid choice. Please enter 1-9.")
 
     def _configure_api_keys(self, settings):
         """Configure API keys."""
@@ -687,3 +707,164 @@ class ConversationMenu:
             'initial_prompt': initial_prompt,
             'tags': tags
         }
+
+    def _handle_agent_roster(self, roster):
+        """
+        Handle agent roster browsing interface.
+
+        Args:
+            roster: AgentRoster instance
+        """
+        from pathlib import Path
+        from src.data_models import AgentDomain
+
+        current_page = 1
+        filter_domain = None
+        sort_by = 'rating'
+        search = None
+        page_agents = []
+
+        while True:
+            # Display agent list
+            page_agents, total_pages = roster.show_agent_list(
+                filter_domain=filter_domain,
+                sort_by=sort_by,
+                search=search,
+                page=current_page
+            )
+
+            # Get user choice
+            choice = input("\nChoice: ").strip().lower()
+
+            if choice.isdigit():
+                # View agent details
+                agent_num = int(choice)
+                if 1 <= agent_num <= len(page_agents):
+                    agent_id, agent = page_agents[agent_num - 1]
+
+                    # Show agent details
+                    if roster.show_agent_details(agent_id):
+                        # Agent details shown, now handle detail view commands
+                        while True:
+                            detail_choice = input("\nChoice: ").strip().lower()
+
+                            if detail_choice == 'v':
+                                # View full system prompt
+                                self._view_full_prompt(agent)
+                                roster.show_agent_details(agent_id)  # Re-show details
+                            elif detail_choice == 'b':
+                                break
+                            else:
+                                print("❌ Invalid choice. Use 'v' to view full prompt or 'b' to go back.")
+                else:
+                    print(f"❌ Invalid agent number. Please enter 1-{len(page_agents)}.")
+                    input("Press Enter to continue...")
+
+            elif choice == 'f':
+                # Filter by domain
+                filter_domain = self._choose_domain_filter()
+                current_page = 1  # Reset to first page
+
+            elif choice == 's':
+                # Search
+                search = input("\n🔍 Enter search term (name/keywords): ").strip()
+                if not search:
+                    search = None
+                current_page = 1  # Reset to first page
+
+            elif choice == 'o':
+                # Sort options
+                sort_by = self._choose_sort_option()
+                current_page = 1  # Reset to first page
+
+            elif choice == 'n':
+                # Next page
+                if current_page < total_pages:
+                    current_page += 1
+                else:
+                    print("❌ Already on last page.")
+                    input("Press Enter to continue...")
+
+            elif choice == 'p':
+                # Previous page
+                if current_page > 1:
+                    current_page -= 1
+                else:
+                    print("❌ Already on first page.")
+                    input("Press Enter to continue...")
+
+            elif choice == 'b':
+                # Back to settings
+                break
+
+            else:
+                print("❌ Invalid choice. Please try again.")
+                input("Press Enter to continue...")
+
+    def _choose_domain_filter(self) -> Optional[str]:
+        """Show domain filter menu and return selected domain."""
+        from src.data_models import AgentDomain
+
+        print("\n" + "="*60)
+        print("Filter by Domain")
+        print("="*60)
+        print("\n  1. All Domains")
+
+        domains = list(AgentDomain)
+        for idx, domain in enumerate(domains, 2):
+            print(f"  {idx}. {domain.icon} {domain.value.title()}")
+
+        choice = input(f"\nSelect domain (1-{len(domains) + 1}): ").strip()
+
+        if choice == '1':
+            return None  # All domains
+        elif choice.isdigit():
+            idx = int(choice) - 2
+            if 0 <= idx < len(domains):
+                return domains[idx].value
+
+        print("❌ Invalid choice. Keeping current filter.")
+        return None
+
+    def _choose_sort_option(self) -> str:
+        """Show sort options menu and return selected sort criterion."""
+        print("\n" + "="*60)
+        print("Sort Options")
+        print("="*60)
+        print("\n  1. By Rating (highest first)")
+        print("  2. By Uses (most used first)")
+        print("  3. By Last Used (most recent first)")
+        print("  4. By Name (alphabetical)")
+        print("  5. By Rank (highest first)")
+
+        choice = input("\nSelect sort option (1-5): ").strip()
+
+        sort_map = {
+            '1': 'rating',
+            '2': 'uses',
+            '3': 'last_used',
+            '4': 'name',
+            '5': 'rank'
+        }
+
+        if choice in sort_map:
+            return sort_map[choice]
+
+        print("❌ Invalid choice. Keeping current sort.")
+        return 'rating'
+
+    def _view_full_prompt(self, agent):
+        """
+        Display the full system prompt for an agent.
+
+        Args:
+            agent: AgentProfile instance
+        """
+        print("\n" + "="*100)
+        print(f"📝 FULL SYSTEM PROMPT - {agent.name}")
+        print("="*100)
+        print()
+        print(agent.system_prompt)
+        print()
+        print("="*100)
+        input("\nPress Enter to return to agent details...")

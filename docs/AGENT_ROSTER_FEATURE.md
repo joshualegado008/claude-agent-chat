@@ -1,9 +1,10 @@
 # Agent Roster & Management Feature Specification
 
-**Status**: Not Implemented
+**Status**: ✅ Implemented (v0.5.0)
 **Priority**: Medium
 **Target Version**: 0.5.0
 **Created**: 2025-10-14
+**Implemented**: 2025-10-14
 
 ## Overview
 

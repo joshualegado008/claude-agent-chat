@@ -9,6 +9,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.0] - 2025-10-14
+
+### Added
+
+#### 👥 Agent Roster & Management
+
+- **Agent roster browsing**: New "View Agent Roster" option (Settings menu #7) for browsing all 41 dynamic agents
+- **Paginated agent list**: Display 20 agents per page with comprehensive information (name, domain, rank, rating, uses, last used)
+- **Agent filtering**: Filter agents by domain (Medicine, Law, Humanities, Technology, Business, Science, Arts)
+- **Multiple sort options**: Sort by Rating, Uses, Last Used, Name, or Rank
+- **Search functionality**: Search agents by name or expertise keywords
+- **Detailed agent profiles**: View complete agent information including:
+  - Basic info (name, ID, domain, classification, specialization)
+  - Performance statistics (total uses, average/best/worst ratings, costs)
+  - Core skills and keywords
+  - Recent rating history with detailed scores
+  - System prompt preview (200 chars) with option to view full prompt
+- **Statistics dashboard**: New "Agent Statistics" option (Settings menu #8) showing:
+  - System overview (total agents, active count, conversations, avg rating, total cost)
+  - Top performers by rating (top 5)
+  - Most used agents (top 5)
+  - Agents by rank distribution (NOVICE through GOD_TIER)
+  - Agents by domain distribution
+  - Activity metrics (created today, used today, inactive counts with tier indicators)
+- **Interactive navigation**: Full keyboard-driven interface with commands for filtering, searching, sorting, and viewing details
+- **Agent tier indicators**: Visual status indicators (🟢 HOT, 🟡 WARM, 🔵 COLD) based on last usage
+- **Color-coded ranks**: Emoji icons for easy rank identification (📗 NOVICE, 📘 COMPETENT, 📙 EXPERT, 📕 MASTER, 🔮 LEGENDARY, ⭐ GOD_TIER)
+
+**Files Added**:
+- `agent_roster.py`: Complete AgentRoster class with list view, detail view, and statistics dashboard
+
+**Files Modified**:
+- `menu.py`: Added options 7 & 8 to Settings menu, added `_handle_agent_roster()`, `_choose_domain_filter()`, `_choose_sort_option()`, and `_view_full_prompt()` methods
+- `docs/AGENT_ROSTER_FEATURE.md`: Updated status to "✅ Implemented"
+
+**Benefits**:
+- Users can now browse and inspect all agents without starting conversations
+- Easy discovery of specialized agents for specific topics
+- Performance tracking visibility encourages agent quality
+- Helps identify underutilized or high-performing agents
+- Complete transparency into the dynamic multi-agent system
+
+---
+
 ## [0.4.2] - 2025-10-14
 
 ### Fixed
