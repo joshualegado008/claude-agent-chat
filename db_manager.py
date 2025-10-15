@@ -86,25 +86,74 @@ class DatabaseManager:
         self,
         title: str,
         initial_prompt: str,
-        agent_a_id: str,
-        agent_a_name: str,
-        agent_b_id: str,
-        agent_b_name: str,
-        tags: List[str] = None
+        agent_a_id: str = None,
+        agent_a_name: str = None,
+        agent_b_id: str = None,
+        agent_b_name: str = None,
+        tags: List[str] = None,
+        agents: List[Dict] = None  # New: Array of {id, name, qualification}
     ) -> str:
         """
         Create a new conversation record.
 
+        Supports both legacy 2-agent format and new multi-agent format:
+        - Legacy: Pass agent_a_id, agent_a_name, agent_b_id, agent_b_name
+        - Multi-agent: Pass agents list with {id, name, qualification} dicts
+
+        Args:
+            title: Conversation title
+            initial_prompt: Initial prompt for the conversation
+            agent_a_id: (Legacy) Agent A ID
+            agent_a_name: (Legacy) Agent A name
+            agent_b_id: (Legacy) Agent B ID
+            agent_b_name: (Legacy) Agent B name
+            tags: Optional list of tags
+            agents: (New) List of agent dicts: [{id, name, qualification}, ...]
+
         Returns:
             conversation_id (UUID as string)
         """
+        # Validate and truncate title if too long
+        # Database schema supports TEXT (unlimited), but we enforce
+        # a reasonable limit for UX purposes.
+        MAX_TITLE_LENGTH = 500  # Reasonable limit for conversation titles
+        if len(title) > MAX_TITLE_LENGTH:
+            original_length = len(title)
+            title = title[:MAX_TITLE_LENGTH - 3] + "..."
+            print(f"\n⚠️  Title truncated from {original_length} to {MAX_TITLE_LENGTH} characters")
+            print(f"   Original: {title[:80]}...")
+            print(f"   Saved as: {title[:80]}...\n")
+
+        # Handle multi-agent format
+        if agents:
+            # Use first 2 agents for backward compatibility with agent_a/agent_b columns
+            if len(agents) >= 1:
+                agent_a_id = agents[0].get('id')
+                agent_a_name = agents[0].get('name')
+            if len(agents) >= 2:
+                agent_b_id = agents[1].get('id')
+                agent_b_name = agents[1].get('name')
+
+            # Convert agents list to JSON for storage
+            agents_json = Json(agents)
+        else:
+            # Legacy format - ensure we have the required fields
+            if not agent_a_id or not agent_a_name or not agent_b_id or not agent_b_name:
+                raise ValueError("Must provide either 'agents' list or all of (agent_a_id, agent_a_name, agent_b_id, agent_b_name)")
+
+            # Convert legacy format to agents array
+            agents_json = Json([
+                {'id': agent_a_id, 'name': agent_a_name, 'qualification': None},
+                {'id': agent_b_id, 'name': agent_b_name, 'qualification': None}
+            ])
+
         with self.pg_conn.cursor() as cursor:
             cursor.execute("""
                 INSERT INTO conversations
-                (title, initial_prompt, agent_a_id, agent_a_name, agent_b_id, agent_b_name, tags)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                (title, initial_prompt, agent_a_id, agent_a_name, agent_b_id, agent_b_name, tags, agents)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
-            """, (title, initial_prompt, agent_a_id, agent_a_name, agent_b_id, agent_b_name, tags or []))
+            """, (title, initial_prompt, agent_a_id, agent_a_name, agent_b_id, agent_b_name, tags or [], agents_json))
 
             conversation_id = cursor.fetchone()[0]
             self.pg_conn.commit()

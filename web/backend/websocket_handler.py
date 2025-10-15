@@ -77,14 +77,45 @@ class ConversationStreamHandler:
         self.agent_pool = self.bridge.create_agent_pool()
 
         try:
-            agent_a = self.agent_pool.create_agent(
-                self.config['agents']['agent_a']['id'],
-                self.config['agents']['agent_a']['name']
-            )
-            agent_b = self.agent_pool.create_agent(
-                self.config['agents']['agent_b']['id'],
-                self.config['agents']['agent_b']['name']
-            )
+            # Load agents from conversation metadata (supports both multi-agent and legacy 2-agent format)
+            agents_array = self.conv_manager.metadata.get('agents')
+
+            if agents_array:
+                # Multi-agent format - load all agents from array
+                for agent_data in agents_array:
+                    agent_id = agent_data.get('id')
+                    agent_name = agent_data.get('name')
+                    if not agent_id or not agent_name:
+                        await websocket.send_json({
+                            "type": "error",
+                            "message": f"Invalid agent data in metadata: {agent_data}"
+                        })
+                        return
+
+                    agent = self.agent_pool.create_agent(agent_id, agent_name)
+                    self.agents.append(agent)
+
+                    print(f"✅ Agent {agent_name} (@{agent_id}) is ready")
+            else:
+                # Legacy 2-agent format
+                agent_a_id = self.conv_manager.metadata.get('agent_a_id')
+                agent_a_name = self.conv_manager.metadata.get('agent_a_name')
+                agent_b_id = self.conv_manager.metadata.get('agent_b_id')
+                agent_b_name = self.conv_manager.metadata.get('agent_b_name')
+
+                if not agent_a_id or not agent_b_id:
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": "Agent IDs not found in conversation metadata"
+                    })
+                    return
+
+                agent_a = self.agent_pool.create_agent(agent_a_id, agent_a_name)
+                agent_b = self.agent_pool.create_agent(agent_b_id, agent_b_name)
+                self.agents = [agent_a, agent_b]
+
+                print(f"✅ Agent {agent_a_name} (@{agent_a_id}) is ready")
+                print(f"✅ Agent {agent_b_name} (@{agent_b_id}) is ready")
 
             if not self.agent_pool.validate_all_agents():
                 await websocket.send_json({
@@ -92,8 +123,6 @@ class ConversationStreamHandler:
                     "message": "Agent validation failed"
                 })
                 return
-
-            self.agents = [agent_a, agent_b]
 
             # Send ready signal
             await websocket.send_json({
@@ -129,7 +158,8 @@ class ConversationStreamHandler:
             # Continuing conversation
             current_message = self.conv_manager.get_context_for_continuation(window_size=5)
 
-        current_agent_idx = start_turn % 2
+        # Round-robin through N agents (works for 2, 3, 4, etc.)
+        current_agent_idx = start_turn % len(self.agents)
         total_tokens = 0
         total_cost = 0.0
 
@@ -385,8 +415,8 @@ class ConversationStreamHandler:
 
 Please respond to continue the discussion."""
 
-                # Switch to other agent
-                current_agent_idx = 1 - current_agent_idx
+                # Switch to next agent in round-robin fashion (works for N agents)
+                current_agent_idx = (current_agent_idx + 1) % len(self.agents)
 
                 # Small delay between turns
                 await asyncio.sleep(1.0)

@@ -56,6 +56,8 @@ Perfect for system engineers who want complete transparency into token usage, co
 
 ### 🤖 Dynamic Multi-Agent System (NEW!)
 - **On-Demand Agent Creation**: System analyzes conversation topic and creates specialized expert agents automatically
+- **Multi-Agent Conversations (3+ Agents)**: Conversations now support any number of agents in round-robin rotation, not just 2
+- **Round-Robin Turn-Taking**: Agents rotate seamlessly (Agent1 → Agent2 → Agent3 → Agent1...) for multi-perspective discussions
 - **Agent Deduplication**: Prevents duplicate agents with similar expertise (85-95% similarity detection)
 - **5-Dimension Rating System**: Rate agents on helpfulness, accuracy, relevance, clarity, and collaboration after each conversation
 - **6-Rank Promotion System**: Agents level up from NOVICE → COMPETENT → EXPERT → MASTER → LEGENDARY → GOD_TIER based on performance

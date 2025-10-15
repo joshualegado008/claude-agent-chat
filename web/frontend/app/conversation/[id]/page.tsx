@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, MessageSquare, Play } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Play, Trash2 } from 'lucide-react';
 import { useWebSocket } from '@/hooks/useWebSocket';
-import { useConversation } from '@/hooks/useConversations';
+import { useConversation, useDeleteConversation } from '@/hooks/useConversations';
 import { AgentMessage, TypingIndicator } from '@/components/AgentMessage';
 import { ConversationControls } from '@/components/ConversationControls';
 import { InterruptDashboard } from '@/components/InterruptDashboard';
 import { InjectContentModal } from '@/components/InjectContentModal';
+import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 import { ToolUseList } from '@/components/ToolUseMessage';
 import { LoadingScreen } from '@/components/Loading';
 import { formatNumber, formatCost } from '@/lib/utils';
@@ -21,6 +22,7 @@ export default function ConversationPage() {
 
   // First, fetch conversation data via REST API
   const { data: conversationData, isLoading: isLoadingData } = useConversation(conversationId);
+  const deleteConversation = useDeleteConversation();
 
   // WebSocket for live streaming (only used when continuing)
   const {
@@ -37,6 +39,7 @@ export default function ConversationPage() {
   const [showDashboard, setShowDashboard] = useState(false);
   const [showInjectModal, setShowInjectModal] = useState(false);
   const [isInjecting, setIsInjecting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Calculate historical stats from exchanges (MUST be before early returns)
@@ -61,7 +64,7 @@ export default function ConversationPage() {
 
   // Auto-connect for brand new conversations (0 exchanges)
   useEffect(() => {
-    if (conversationData && conversationData.exchanges.length === 0) {
+    if (conversationData && conversationData.exchanges && conversationData.exchanges.length === 0) {
       console.log('New conversation detected, auto-starting...');
       setIsLive(true);
       connect();
@@ -81,6 +84,24 @@ export default function ConversationPage() {
       setIsInjecting(false);
       setShowInjectModal(false);
     }, 500);
+  };
+
+  const handleDeleteClick = () => {
+    setShowDeleteDialog(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    try {
+      await deleteConversation.mutateAsync(conversationId);
+      router.push('/'); // Redirect to dashboard after successful deletion
+    } catch (error) {
+      console.error('Failed to delete conversation:', error);
+      setShowDeleteDialog(false);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteDialog(false);
   };
 
   if (isLoadingData) {
@@ -104,13 +125,31 @@ export default function ConversationPage() {
   }
 
   // Use WebSocket data if live, otherwise use REST API data
-  const exchanges = isLive ? state.exchanges : conversationData.exchanges;
+  const exchanges = isLive ? state.exchanges : (conversationData.exchanges || []);
   const title = isLive && state.title ? state.title : conversationData.title;
-  const agentAName = isLive && state.agentAName ? state.agentAName : conversationData.agent_a_name;
-  const agentBName = isLive && state.agentBName ? state.agentBName : conversationData.agent_b_name;
   const isComplete = isLive ? state.isComplete : conversationData.status === 'completed';
   const showContinueButton = !isLive && (conversationData.status === 'active' || conversationData.status === 'paused') && conversationData.total_turns < 20;
   const continueButtonText = conversationData.status === 'paused' ? 'Resume Conversation' : 'Continue Conversation';
+
+  // Build agents display string from agents array (supports N agents, not just 2)
+  let agentsDisplay = '';
+  if (conversationData.agents && conversationData.agents.length > 0) {
+    // Multi-agent format - display all agents with qualifications
+    const agentStrings = conversationData.agents.map(agent =>
+      agent.qualification ? `${agent.name} - ${agent.qualification}` : agent.name
+    );
+    agentsDisplay = agentStrings.join(' ↔ ');
+  } else {
+    // Legacy 2-agent format - fallback to agent_a/agent_b
+    const agentAName = conversationData.agent_a_name;
+    const agentBName = conversationData.agent_b_name;
+    const agentAQualification = conversationData.agent_a_qualification;
+    const agentBQualification = conversationData.agent_b_qualification;
+
+    const agentADisplay = agentAQualification ? `${agentAName} - ${agentAQualification}` : agentAName;
+    const agentBDisplay = agentBQualification ? `${agentBName} - ${agentBQualification}` : agentBName;
+    agentsDisplay = `${agentADisplay} ↔ ${agentBDisplay}`;
+  }
 
   // Show stats if we have either live stats OR historical stats
   const showLiveStats = state.currentStats !== null;
@@ -126,46 +165,60 @@ export default function ConversationPage() {
               <button
                 onClick={() => router.push('/')}
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                title="Back to dashboard"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
               <div>
                 <h1 className="text-xl font-bold">{title}</h1>
                 <p className="text-sm text-slate-400">
-                  {agentAName} ↔ {agentBName}
+                  {agentsDisplay}
                 </p>
               </div>
             </div>
 
-            {/* Progress Stats */}
-            {(showLiveStats || showHistoricalStats) && (
-              <div className="flex items-center space-x-6 text-sm">
-                <div className="text-center">
-                  <div className="text-slate-400">Turns</div>
-                  <div className="font-bold text-lg">
-                    {showLiveStats
-                      ? state.currentStats.session_stats?.current_turn || 0
-                      : exchanges.length}
+            {/* Progress Stats and Actions */}
+            <div className="flex items-center space-x-4">
+              {(showLiveStats || showHistoricalStats) && (
+                <div className="flex items-center space-x-6 text-sm">
+                  <div className="text-center">
+                    <div className="text-slate-400">Turns</div>
+                    <div className="font-bold text-lg">
+                      {showLiveStats && state.currentStats
+                        ? state.currentStats.session_stats?.current_turn || 0
+                        : exchanges.length}
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-slate-400">Tokens</div>
+                    <div className="font-bold text-lg">
+                      {showLiveStats && state.currentStats
+                        ? formatNumber(state.currentStats.session_stats?.projected_total_tokens || state.currentStats.total_tokens)
+                        : formatNumber(historicalStats?.totalTokens || 0)}
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-slate-400">Cost</div>
+                    <div className="font-bold text-lg">
+                      {showLiveStats && state.currentStats
+                        ? formatCost(state.currentStats.total_cost)
+                        : formatCost(historicalStats?.totalCost || 0)}
+                    </div>
                   </div>
                 </div>
-                <div className="text-center">
-                  <div className="text-slate-400">Tokens</div>
-                  <div className="font-bold text-lg">
-                    {showLiveStats
-                      ? formatNumber(state.currentStats.session_stats?.projected_total_tokens || state.currentStats.total_tokens)
-                      : formatNumber(historicalStats?.totalTokens || 0)}
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-slate-400">Cost</div>
-                  <div className="font-bold text-lg">
-                    {showLiveStats
-                      ? formatCost(state.currentStats.total_cost)
-                      : formatCost(historicalStats?.totalCost || 0)}
-                  </div>
-                </div>
-              </div>
-            )}
+              )}
+
+              {/* Delete Button - Only show for non-live conversations */}
+              {!isLive && (
+                <button
+                  onClick={handleDeleteClick}
+                  className="p-2 hover:bg-red-900/30 rounded-lg transition-colors group"
+                  title="Delete conversation"
+                >
+                  <Trash2 className="w-5 h-5 text-slate-500 group-hover:text-red-400" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -458,6 +511,19 @@ export default function ConversationPage() {
           onClose={() => setShowInjectModal(false)}
           onSubmit={handleInject}
           isSubmitting={isInjecting}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {conversationData && (
+        <DeleteConfirmDialog
+          isOpen={showDeleteDialog}
+          onClose={handleDeleteCancel}
+          onConfirm={handleDeleteConfirm}
+          conversationTitle={conversationData.title}
+          totalTurns={conversationData.total_turns}
+          createdAt={conversationData.created_at}
+          isDeleting={deleteConversation.isPending}
         />
       )}
     </div>

@@ -25,14 +25,19 @@ class PersistentConversationManager:
         self,
         title: str,
         initial_prompt: str,
-        agent_a_id: str,
-        agent_a_name: str,
-        agent_b_id: str,
-        agent_b_name: str,
-        tags: List[str] = None
+        agent_a_id: str = None,
+        agent_a_name: str = None,
+        agent_b_id: str = None,
+        agent_b_name: str = None,
+        tags: List[str] = None,
+        agents: List[Dict] = None  # New: Array of {id, name, qualification}
     ) -> str:
         """
         Start a new conversation and create database record.
+
+        Supports both legacy 2-agent format and new multi-agent format:
+        - Legacy: Pass agent_a_id, agent_a_name, agent_b_id, agent_b_name
+        - Multi-agent: Pass agents list with {id, name, qualification} dicts
 
         Returns:
             conversation_id
@@ -44,18 +49,40 @@ class PersistentConversationManager:
             agent_a_name=agent_a_name,
             agent_b_id=agent_b_id,
             agent_b_name=agent_b_name,
-            tags=tags
+            tags=tags,
+            agents=agents
         )
 
         self.exchanges = []
         self.current_turn = 0
-        self.metadata = {
-            'title': title,
-            'initial_prompt': initial_prompt,
-            'agent_a_name': agent_a_name,
-            'agent_b_name': agent_b_name,
-            'created_at': datetime.now().isoformat()
-        }
+
+        # Build metadata based on format
+        if agents:
+            # Multi-agent format
+            self.metadata = {
+                'title': title,
+                'initial_prompt': initial_prompt,
+                'agents': agents,
+                'created_at': datetime.now().isoformat()
+            }
+            # Also include agent_a/agent_b for backward compatibility
+            if len(agents) >= 1:
+                self.metadata['agent_a_id'] = agents[0].get('id')
+                self.metadata['agent_a_name'] = agents[0].get('name')
+            if len(agents) >= 2:
+                self.metadata['agent_b_id'] = agents[1].get('id')
+                self.metadata['agent_b_name'] = agents[1].get('name')
+        else:
+            # Legacy format
+            self.metadata = {
+                'title': title,
+                'initial_prompt': initial_prompt,
+                'agent_a_id': agent_a_id,
+                'agent_a_name': agent_a_name,
+                'agent_b_id': agent_b_id,
+                'agent_b_name': agent_b_name,
+                'created_at': datetime.now().isoformat()
+            }
 
         return self.conversation_id
 
@@ -89,11 +116,20 @@ class PersistentConversationManager:
             self.metadata['status'] = 'completed'
             print(f"   ✅ Status updated to 'completed'")
 
+        # Build agent display string
+        if self.metadata.get('agents'):
+            # Multi-agent format
+            agent_names = [agent['name'] for agent in self.metadata['agents']]
+            agents_display = ' ↔ '.join(agent_names)
+        else:
+            # Legacy 2-agent format
+            agents_display = f"{self.metadata.get('agent_a_name', 'Unknown')} ↔ {self.metadata.get('agent_b_name', 'Unknown')}"
+
         print(f"\n✅ Loaded conversation: {self.metadata['title']}")
         print(f"   Turns: {self.current_turn}")
         print(f"   Status: {self.metadata.get('status', 'active')}")
         print(f"   Created: {self.metadata['created_at']}")
-        print(f"   Agents: {self.metadata['agent_a_name']} ↔ {self.metadata['agent_b_name']}")
+        print(f"   Agents: {agents_display}")
 
         return True
 

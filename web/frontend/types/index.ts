@@ -2,19 +2,32 @@
  * Type definitions for Claude Agent Chat Web Interface
  */
 
+// Agent info for multi-agent conversations
+export interface AgentInfo {
+  id: string;
+  name: string;
+  qualification?: string;
+  model: string;
+}
+
 export interface Conversation {
   id: string;
   title: string;
   initial_prompt: string;
-  agent_a_id: string;
-  agent_a_name: string;
-  agent_a_model: string;
-  agent_b_id: string;
-  agent_b_name: string;
-  agent_b_model: string;
+  // Legacy 2-agent fields (optional for backward compatibility)
+  agent_a_id?: string;
+  agent_a_name?: string;
+  agent_a_qualification?: string;
+  agent_a_model?: string;
+  agent_b_id?: string;
+  agent_b_name?: string;
+  agent_b_qualification?: string;
+  agent_b_model?: string;
+  // New multi-agent field
+  agents?: AgentInfo[];
   total_turns: number;
   total_tokens: number;
-  status: 'active' | 'completed' | 'archived';
+  status: 'active' | 'completed' | 'paused' | 'archived';
   tags: string[];
   created_at: string;
   updated_at: string;
@@ -106,6 +119,8 @@ export type WebSocketMessageType =
   | 'stopped'
   | 'metadata'
   | 'metadata_unavailable'
+  | 'tool_use'
+  | 'injected'
   | 'error';
 
 export interface WebSocketMessage {
@@ -129,4 +144,46 @@ export type WebSocketCommand = 'pause' | 'resume' | 'stop' | 'get_metadata';
 
 export interface WebSocketCommandMessage {
   command: WebSocketCommand;
+}
+
+// Agent domain types
+export type AgentDomain = 'science' | 'medicine' | 'humanities' | 'technology' | 'business' | 'law' | 'arts';
+
+// Agent profile for dynamic agent selection
+export interface AgentProfile {
+  agent_id: string;
+  name: string;
+  domain: AgentDomain;
+  domain_icon: string;
+  primary_class: string;
+  subclass: string;
+  specialization: string;
+  unique_expertise: string;
+  core_skills: string[];
+  keywords: string[];
+  system_prompt: string;
+  created_at: string;
+  last_used: string;
+  agent_file_path?: string | null;
+  total_uses: number;
+  creation_cost_usd: number;
+  created_by: string;
+  model: string;
+  secondary_skills: string[];
+}
+
+// Agent selection metadata
+export interface AgentSelectionMetadata {
+  refined_topic: string;
+  expertise_requirements: string[];
+  agents_created: number;
+  agents_reused: number;
+  creation_cost: number;
+  cache_savings: number;
+}
+
+// Agent selection response
+export interface AgentSelectionResponse {
+  agents: AgentProfile[];
+  metadata: AgentSelectionMetadata;
 }

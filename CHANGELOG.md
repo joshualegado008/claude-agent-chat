@@ -9,6 +9,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.0] - 2025-10-15
+
+### Added
+
+#### 🔄 Multi-Agent Conversations (3+ Agents)
+
+- **N-agent support**: Conversations now support 3+ agents instead of being limited to 2
+- **Round-robin turn-taking**: Agents rotate through all N participants in order (e.g., Agent1 → Agent2 → Agent3 → Agent1...)
+- **Database migration**: Added `agents` JSONB column to store array of participating agents
+- **Backward compatibility**: Legacy 2-agent conversations still fully supported via `agent_a/agent_b` columns
+- **Dynamic agent selection**: Frontend UI now accepts and displays all selected agents (no 2-agent limit)
+- **Multi-agent display**: Conversation headers show all agents with qualifications (e.g., "Agent1 - Title ↔ Agent2 - Title ↔ Agent3 - Title")
+- **WebSocket round-robin**: Updated turn logic from `turn % 2` to `turn % len(agents)` for N-agent rotation
+- **Agent metadata storage**: Each agent stored with `{id, name, qualification}` in JSONB array
+
+**Files Added**:
+- `migrations/004_support_multi_agents.sql`: Database migration adding agents JSONB column
+- `run_migration_004.py`: Migration script with verification
+- `run_migration_004_simple.py`: Simplified migration runner
+
+**Files Modified (Backend)**:
+- `db_manager.py`: Updated `create_conversation()` to accept optional `agents: List[Dict]` parameter
+- `conversation_manager_persistent.py`: Updated `start_new_conversation()` and `load_conversation()` for multi-agent format
+- `web/backend/api.py`:
+  - POST `/api/conversations`: Now accepts all agents from `request.agent_ids` (not just first 2)
+  - GET `/api/conversations/{id}`: Returns `agents` array alongside legacy `agent_a/agent_b` fields
+- `web/backend/websocket_handler.py`:
+  - Loads all agents from conversation metadata
+  - Round-robin turn-taking: `current_agent_idx = (current_agent_idx + 1) % len(self.agents)`
+
+**Files Modified (Frontend)**:
+- `web/frontend/components/AgentSelector.tsx`: Removed 2-agent validation, approve button works for N agents
+- `web/frontend/app/conversation/[id]/page.tsx`: Dynamic agent display supporting N agents
+- `web/frontend/types/index.ts`: Added `AgentInfo` interface, updated `Conversation` type with optional `agents` array
+
+**Migration Strategy**:
+- **Non-breaking**: Adds `agents` JSONB column while preserving `agent_a_id`, `agent_a_name`, `agent_b_id`, `agent_b_name`
+- **Data migration**: Existing 2-agent conversations automatically migrated to new format
+- **Dual format support**: New conversations use `agents` array, old conversations use legacy columns
+- **Zero downtime**: Migration runs while conversations continue
+
+**Benefits**:
+- Richer multi-perspective discussions with 3+ expert agents
+- More comprehensive coverage of complex topics requiring diverse expertise
+- Natural extension of dynamic agent selection (which already creates 3+ agents)
+- Flexible conversation structures (2-way, 3-way, 4-way, etc.)
+- Round-robin ensures all agents participate equally
+
+**Example Use Cases**:
+- Religious topic: Theologian + Historian + Ethicist (3 agents)
+- Healthcare topic: Doctor + Researcher + Policy Expert (3 agents)
+- Technology topic: Engineer + Designer + Product Manager + Ethicist (4 agents)
+
+---
+
 ## [0.5.0] - 2025-10-14
 
 ### Added

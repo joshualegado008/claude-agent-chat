@@ -5,6 +5,7 @@ Provides HTTP and WebSocket endpoints for the web frontend
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from datetime import datetime
@@ -37,6 +38,7 @@ class NewConversationRequest(BaseModel):
     initial_prompt: Optional[str] = None
     tags: Optional[List[str]] = None
     generate_prompt: bool = True  # Auto-generate if not provided
+    agent_ids: Optional[List[str]] = None  # For dynamic agent selection
 
 class ContinueConversationRequest(BaseModel):
     continuation_prompt: Optional[str] = None
@@ -47,6 +49,9 @@ class SearchRequest(BaseModel):
 
 class GeneratePromptRequest(BaseModel):
     title: str
+
+class SelectAgentsRequest(BaseModel):
+    topic: str
 
 # API Routes
 
@@ -139,16 +144,90 @@ async def get_conversation(conversation_id: str):
         agent_a_model = config['agents'].get(agent_a_id, {}).get('model', 'claude-sonnet-4-5-20250929')
         agent_b_model = config['agents'].get(agent_b_id, {}).get('model', 'claude-sonnet-4-5-20250929')
 
+        # Extract agent qualifications from markdown files
+        def get_agent_qualification(agent_id: str) -> Optional[str]:
+            """Extract classification/specialization from agent markdown file."""
+            try:
+                # Check both static and dynamic agent paths
+                static_path = Path(__file__).parent.parent.parent / '.claude' / 'agents' / f'{agent_id}.md'
+                dynamic_path = Path(__file__).parent.parent.parent / '.claude' / 'agents' / 'dynamic' / f'{agent_id}.md'
+
+                agent_file = static_path if static_path.exists() else (dynamic_path if dynamic_path.exists() else None)
+
+                if not agent_file:
+                    return None
+
+                # Read markdown file and extract classification from footer
+                with open(agent_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+
+                # Look for "**Classification**: " line near the end
+                for line in content.split('\n'):
+                    if line.startswith('**Classification**:'):
+                        # Extract text after "**Classification**: "
+                        classification = line.split('**Classification**:')[1].strip()
+                        # Return just the primary classification (e.g., "Public Policy" from "Humanities → Public Policy")
+                        if '→' in classification:
+                            parts = classification.split('→')
+                            return parts[1].strip() if len(parts) > 1 else parts[0].strip()
+                        return classification
+
+                return None
+            except Exception as e:
+                print(f"Warning: Could not extract qualification for {agent_id}: {e}")
+                return None
+
+        agent_a_qualification = get_agent_qualification(agent_a_id)
+        agent_b_qualification = get_agent_qualification(agent_b_id)
+
+        # Build agents array from JSONB column if available, otherwise construct from agent_a/agent_b
+        agents_array = conversation.get("agents")
+        if agents_array:
+            # Multi-agent format - enrich with qualifications and models
+            agents = []
+            for agent_data in agents_array:
+                agent_id = agent_data.get('id')
+                agent_qualification = agent_data.get('qualification') or get_agent_qualification(agent_id)
+                agent_model = config['agents'].get(agent_id, {}).get('model', 'claude-sonnet-4-5-20250929')
+
+                agents.append({
+                    'id': agent_id,
+                    'name': agent_data.get('name'),
+                    'qualification': agent_qualification,
+                    'model': agent_model
+                })
+        else:
+            # Legacy format - construct from agent_a/agent_b
+            agents = [
+                {
+                    'id': agent_a_id,
+                    'name': conversation.get("agent_a_name"),
+                    'qualification': agent_a_qualification,
+                    'model': agent_a_model
+                },
+                {
+                    'id': agent_b_id,
+                    'name': conversation.get("agent_b_name"),
+                    'qualification': agent_b_qualification,
+                    'model': agent_b_model
+                }
+            ]
+
         return {
             "id": str(conversation.get("id")),
             "title": conversation.get("title"),
             "initial_prompt": conversation.get("initial_prompt"),
+            # Legacy fields for backward compatibility
             "agent_a_id": agent_a_id,
             "agent_a_name": conversation.get("agent_a_name"),
+            "agent_a_qualification": agent_a_qualification,
             "agent_a_model": agent_a_model,
             "agent_b_id": agent_b_id,
             "agent_b_name": conversation.get("agent_b_name"),
+            "agent_b_qualification": agent_b_qualification,
             "agent_b_model": agent_b_model,
+            # New multi-agent field
+            "agents": agents,
             "total_turns": conversation.get("total_turns", 0),
             "total_tokens": conversation.get("total_tokens", 0),
             "status": conversation.get("status"),
@@ -182,19 +261,32 @@ async def create_conversation(request: NewConversationRequest):
         # Generate prompt if requested and not provided
         initial_prompt = request.initial_prompt
         tags = request.tags or []
+        concise_title = request.title  # Default to user's input
 
-        if request.generate_prompt and not initial_prompt:
-            metadata_extractor = bridge.get_metadata_extractor()
-            if metadata_extractor:
-                # Use AI to generate prompt from title
-                initial_prompt = metadata_extractor.generate_initial_prompt(request.title)
-                if not tags:
-                    tags = metadata_extractor.extract_tags_from_title(request.title)
-            else:
+        # Get metadata extractor for AI-powered title/prompt generation
+        metadata_extractor = bridge.get_metadata_extractor()
+
+        if request.generate_prompt:
+            if not metadata_extractor:
                 raise HTTPException(
                     status_code=400,
                     detail="Automatic prompt generation not available. Provide initial_prompt manually."
                 )
+
+            # Generate concise title from user's input (may be long)
+            concise_title = metadata_extractor.generate_concise_title(request.title)
+
+            # Generate initial prompt if not provided
+            if not initial_prompt:
+                initial_prompt = metadata_extractor.generate_initial_prompt(request.title)
+
+            # Extract tags if not provided
+            if not tags:
+                tags = metadata_extractor.extract_tags_from_title(request.title)
+        else:
+            # If not auto-generating, still try to create concise title for long inputs
+            if metadata_extractor and len(request.title) > 100:
+                concise_title = metadata_extractor.generate_concise_title(request.title)
 
         if not initial_prompt:
             raise HTTPException(status_code=400, detail="initial_prompt is required")
@@ -202,29 +294,72 @@ async def create_conversation(request: NewConversationRequest):
         # Create conversation
         conv_manager = bridge.create_conversation_manager()
 
-        # Get agent config from config.yaml
-        import yaml
-        from pathlib import Path
-        config_path = Path(__file__).parent.parent.parent / 'config.yaml'
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
+        # Determine which agents to use
+        if request.agent_ids and len(request.agent_ids) >= 1:
+            # Use dynamically selected agents (supports N agents, not just 2)
+            coordinator = bridge.get_agent_coordinator()
+            if not coordinator:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Dynamic agents requested but coordinator not available"
+                )
 
-        agent_a_config = config['agents']['agent_a']
-        agent_b_config = config['agents']['agent_b']
+            # Get agent profiles from coordinator for ALL selected agents
+            agents = []
+            for agent_id in request.agent_ids:
+                agent_profile = coordinator.active_agents.get(agent_id)
+                if not agent_profile:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Agent {agent_id} not found in coordinator"
+                    )
 
-        conversation_id = conv_manager.start_new_conversation(
-            title=request.title,
-            initial_prompt=initial_prompt,
-            agent_a_id=agent_a_config['id'],
-            agent_a_name=agent_a_config['name'],
-            agent_b_id=agent_b_config['id'],
-            agent_b_name=agent_b_config['name'],
-            tags=tags
-        )
+                # Extract qualification from agent's primary_class
+                qualification = agent_profile.primary_class
+
+                agents.append({
+                    'id': agent_id,
+                    'name': agent_profile.name,
+                    'qualification': qualification
+                })
+
+            # Create conversation with agents array
+            conversation_id = conv_manager.start_new_conversation(
+                title=concise_title,  # Use concise title for UI
+                initial_prompt=initial_prompt,  # Full prompt for conversation
+                tags=tags,
+                agents=agents  # Pass all agents as array
+            )
+        else:
+            # Use static agents from config.yaml (legacy 2-agent format)
+            import yaml
+            from pathlib import Path
+            config_path = Path(__file__).parent.parent.parent / 'config.yaml'
+            with open(config_path, 'r') as f:
+                config = yaml.safe_load(f)
+
+            agent_a_config = config['agents']['agent_a']
+            agent_b_config = config['agents']['agent_b']
+
+            agent_a_id = agent_a_config['id']
+            agent_a_name = agent_a_config['name']
+            agent_b_id = agent_b_config['id']
+            agent_b_name = agent_b_config['name']
+
+            # Legacy 2-agent conversation
+            conversation_id = conv_manager.start_new_conversation(
+                title=concise_title,  # Use concise title for UI
+                initial_prompt=initial_prompt,  # Full prompt for conversation
+                agent_a_id=agent_a_id,
+                agent_a_name=agent_a_name,
+                agent_b_id=agent_b_id,
+                agent_b_name=agent_b_name,
+                tags=tags
+            )
 
         return {
             "id": conversation_id,
-            "title": request.title,
+            "title": concise_title,  # Return concise title
             "initial_prompt": initial_prompt,
             "tags": tags,
             "message": "Conversation created successfully"
@@ -332,6 +467,189 @@ async def generate_prompt(request: GeneratePromptRequest):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate prompt: {str(e)}")
+
+@app.post("/api/agents/select")
+async def select_agents(request: SelectAgentsRequest):
+    """Select dynamic agents based on conversation topic."""
+    bridge = get_bridge()
+    coordinator = bridge.get_agent_coordinator()
+
+    if not coordinator:
+        raise HTTPException(
+            status_code=503,
+            detail="Dynamic agent selection not available. Agent coordinator not initialized."
+        )
+
+    try:
+        # Get agents from coordinator
+        agents_profiles, metadata = await coordinator.get_or_create_agents(request.topic)
+
+        # Serialize agent profiles
+        agents_data = []
+        for profile in agents_profiles:
+            agent_dict = profile.to_dict()
+            # Add domain icon for frontend display
+            agent_dict['domain_icon'] = profile.domain.icon
+            agents_data.append(agent_dict)
+
+        return {
+            "agents": agents_data,
+            "metadata": metadata
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to select agents: {str(e)}")
+
+@app.get("/api/agents/select-stream")
+async def select_agents_stream(topic: str):
+    """Select dynamic agents with real-time progress streaming (SSE)."""
+    bridge = get_bridge()
+    coordinator = bridge.get_agent_coordinator()
+
+    if not coordinator:
+        raise HTTPException(
+            status_code=503,
+            detail="Dynamic agent selection not available. Agent coordinator not initialized."
+        )
+
+    async def generate_progress():
+        """Generator that yields Server-Sent Events with progress updates."""
+        try:
+            # Send initial status
+            yield f"data: {json.dumps({'type': 'start', 'message': 'Starting agent selection...'})}\n\n"
+            await asyncio.sleep(0)  # Force flush to client
+
+            # Step 1: Refine topic
+            yield f"data: {json.dumps({'type': 'refining_topic', 'message': 'Refining topic...'})}\n\n"
+            await asyncio.sleep(0)  # Force flush to client
+
+            # We need to manually do what get_or_create_agents does, but with progress updates
+            metadata = {
+                'refined_topic': '',
+                'expertise_requirements': [],
+                'agents_created': 0,
+                'agents_reused': 0,
+                'creation_cost': 0.0,
+                'cache_savings': 0.0
+            }
+
+            # Refine topic
+            metadata_extractor = coordinator.metadata_extractor
+            refined_topic = await metadata_extractor.refine_topic(topic)
+            metadata['refined_topic'] = refined_topic
+
+            yield f"data: {json.dumps({'type': 'topic_refined', 'message': 'Topic refined', 'refined_topic': refined_topic})}\n\n"
+            await asyncio.sleep(0)  # Force flush to client
+
+            # Step 2: Analyze expertise
+            yield f"data: {json.dumps({'type': 'analyzing_expertise', 'message': 'Analyzing expertise requirements...'})}\n\n"
+            await asyncio.sleep(0)  # Force flush to client
+
+            expertise_analysis = await metadata_extractor.analyze_expertise_requirements(refined_topic)
+            metadata['expertise_requirements'] = expertise_analysis.get('expertise_needed', [])
+
+            total_agents = len(metadata['expertise_requirements'])
+            yield f"data: {json.dumps({'type': 'expertise_analyzed', 'message': f'Found {total_agents} expertise areas needed', 'count': total_agents})}\n\n"
+            await asyncio.sleep(0)  # Force flush to client
+
+            # Step 3: Create/reuse agents with progress updates
+            agents_to_use = []
+
+            for idx, expertise_desc in enumerate(metadata['expertise_requirements'], 1):
+                yield f"data: {json.dumps({'type': 'checking_agent', 'message': f'Checking agent {idx}/{total_agents}...', 'current': idx, 'total': total_agents})}\n\n"
+                await asyncio.sleep(0)  # Force flush to client
+
+                # Check deduplication
+                decision = coordinator.deduplication.check_before_create(
+                    expertise_desc,
+                    strict=True
+                )
+
+                if decision['action'] == 'reuse':
+                    # Reuse existing agent
+                    agent_id = decision['agent_id']
+                    agent = coordinator.active_agents[agent_id]
+
+                    yield f"data: {json.dumps({'type': 'agent_reused', 'message': f'Reusing: {agent.name}', 'agent_name': agent.name, 'current': idx, 'total': total_agents})}\n\n"
+                    await asyncio.sleep(0)  # Force flush to client
+
+                    agents_to_use.append(agent)
+                    metadata['agents_reused'] += 1
+                    metadata['cache_savings'] += 0.004
+
+                elif decision['action'] in ['create', 'create_with_warning']:
+                    # Create new agent
+                    yield f"data: {json.dumps({'type': 'creating_agent', 'message': f'Creating agent {idx}/{total_agents}...', 'expertise': expertise_desc[:60], 'current': idx, 'total': total_agents})}\n\n"
+                    await asyncio.sleep(0)  # Force flush to client before long operation
+
+                    # Create agent (this takes 10-15 seconds with multiple Claude API calls)
+                    agent = await coordinator.factory.create_agent(
+                        expertise_desc,
+                        classification=decision.get('classification'),
+                        context=refined_topic
+                    )
+
+                    # Register in all systems
+                    coordinator.active_agents[agent.agent_id] = agent
+                    coordinator.deduplication.register_agent(agent)
+                    coordinator.rating_system.register_agent(agent.agent_id, agent.name)
+                    coordinator.store.save_agent(agent)
+
+                    yield f"data: {json.dumps({'type': 'agent_created', 'message': f'Created: {agent.name}', 'agent_name': agent.name, 'domain': agent.domain.value, 'class': agent.primary_class, 'current': idx, 'total': total_agents, 'cost': coordinator.factory.get_total_cost()})}\n\n"
+                    await asyncio.sleep(0)  # Force flush to client
+
+                    agents_to_use.append(agent)
+                    metadata['agents_created'] += 1
+                    metadata['creation_cost'] += coordinator.factory.get_total_cost()
+
+                else:
+                    # Suggest reuse or deny
+                    if decision.get('similar_agents'):
+                        similar_agent, similarity = decision['similar_agents'][0]
+                        agents_to_use.append(similar_agent)
+                        metadata['agents_reused'] += 1
+
+            # Mark agents as HOT
+            for agent in agents_to_use:
+                coordinator.lifecycle_manager.mark_hot(agent.agent_id)
+                if agent.agent_id in coordinator.rating_system.performance_profiles:
+                    profile = coordinator.rating_system.performance_profiles[agent.agent_id]
+                    profile.last_used = datetime.now()
+                    coordinator.store.save_performance_profile(profile)
+
+            # Serialize agent profiles
+            agents_data = []
+            for profile in agents_to_use:
+                agent_dict = profile.to_dict()
+                agent_dict['domain_icon'] = profile.domain.icon
+                agents_data.append(agent_dict)
+
+            # Send final result
+            result = {
+                'type': 'complete',
+                'agents': agents_data,
+                'metadata': metadata
+            }
+            yield f"data: {json.dumps(result)}\n\n"
+            await asyncio.sleep(0)  # Force flush to client
+
+        except Exception as e:
+            error_msg = {
+                'type': 'error',
+                'message': str(e)
+            }
+            yield f"data: {json.dumps(error_msg)}\n\n"
+            await asyncio.sleep(0)  # Force flush to client
+
+    return StreamingResponse(
+        generate_progress(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
+        }
+    )
 
 # WebSocket endpoint for live conversation streaming
 @app.websocket("/ws/conversation/{conversation_id}")
