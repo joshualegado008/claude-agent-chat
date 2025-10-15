@@ -21,6 +21,7 @@ from cost_calculator import CostCalculator
 try:
     from metadata_extractor import MetadataExtractor
     from terminal_dashboard import TerminalDashboard
+    from conversation_summarizer import ConversationSummarizer
     RICH_CONTEXT_AVAILABLE = True
 except ImportError:
     RICH_CONTEXT_AVAILABLE = False
@@ -341,6 +342,18 @@ def main():
         print("\n⚠️  Falling back to static agents (Nova & Atlas)")
         agent_coordinator = None
 
+    # Initialize conversation summarizer if OpenAI key is available
+    summarizer = None
+    if RICH_CONTEXT_AVAILABLE:
+        try:
+            settings = get_settings()
+            openai_key = settings.get_openai_api_key()
+            if openai_key:
+                summarizer = ConversationSummarizer(api_key=openai_key)
+                DisplayFormatter.print_success("✨ AI-powered conversation summaries enabled (GPT-4o-mini)")
+        except Exception as e:
+            DisplayFormatter.print_info(f"💡 Summaries unavailable: {e}")
+
     # Show menu and get user choice
     menu = ConversationMenu(db)
 
@@ -363,6 +376,7 @@ def main():
 
             run_conversation(
                 db, config, agent_coordinator,
+                summarizer=summarizer,
                 conversation_mode='new',
                 title=details['title'],
                 initial_prompt=details['initial_prompt'],
@@ -373,6 +387,7 @@ def main():
             # Continue existing conversation
             run_conversation(
                 db, config, agent_coordinator,
+                summarizer=summarizer,
                 conversation_mode='continue',
                 conversation_id=conversation_id,
                 continuation_prompt=continuation_prompt
@@ -383,6 +398,7 @@ def run_conversation(
     db: DatabaseManager,
     config: dict,
     agent_coordinator: Optional[AgentCoordinator],
+    summarizer: Optional['ConversationSummarizer'] = None,
     conversation_mode: str = 'new',
     conversation_id: str = None,
     title: str = None,
@@ -491,13 +507,7 @@ Please respond considering both the previous context and this new direction."""
 
         print("="*60)
 
-    # Get user confirmation
-    response = input("\nReady to start? [Y/n]: ").strip().lower()
-    if response and response != 'y':
-        print("Cancelled.")
-        return
-
-    # Create agents (dynamic or static)
+    # Create agents FIRST (before user confirmation)
     DisplayFormatter.print_info("Initializing agents...")
     pool = AgentPool()
     agents_profiles = []  # Track AgentProfile objects for rating
@@ -525,9 +535,19 @@ Please respond considering both the previous context and this new direction."""
                 agent = pool.create_agent(agent_id, profile.name)
                 agents.append(agent)
 
-            print(f"\n✅ Using {len(agents)} dynamic agents:")
-            for profile in agents_profiles:
-                print(f"   • {profile.name} ({profile.domain.value})")
+            # SHOW AGENT SELECTION TO USER
+            print("\n" + "="*60)
+            print("🤖 Selected Agents for This Conversation")
+            print("="*60)
+            for i, profile in enumerate(agents_profiles, 1):
+                print(f"\n{i}. {profile.name}")
+                print(f"   Domain: {profile.domain.icon} {profile.domain.value.title()}")
+                print(f"   Class: {profile.primary_class}")
+                print(f"   Expertise: {profile.unique_expertise}")
+                skills_preview = ', '.join(profile.core_skills[:3])
+                if len(profile.core_skills) > 3:
+                    skills_preview += f" (+{len(profile.core_skills) - 3} more)"
+                print(f"   Skills: {skills_preview}")
 
         else:
             # Fallback to static agents (Nova & Atlas)
@@ -542,9 +562,29 @@ Please respond considering both the previous context and this new direction."""
             )
             agents = [agent_a, agent_b]
 
+            print(f"\n✅ Using {len(agents)} static agents:")
+            print(f"   • {config['agent_a']['name']}")
+            print(f"   • {config['agent_b']['name']}")
+
         if not pool.validate_all_agents():
             DisplayFormatter.print_error("Agent validation failed!")
             return
+
+        # USER APPROVAL STEP
+        print("\n" + "="*60)
+        approval = input("\nApprove these agents? [Y/n/r (retry with different selection)]: ").strip().lower()
+
+        if approval == 'r':
+            print("\n🔄 Retry with different agents is not yet implemented.")
+            print("   Tip: Cancel and adjust your conversation title for different agent selection.")
+            approval = input("\nProceed with these agents? [Y/n]: ").strip().lower()
+
+        if approval and approval != 'y':
+            print("\n❌ Cancelled.")
+            return
+
+        print("\n✅ Approved! Starting conversation...")
+
     except Exception as e:
         DisplayFormatter.print_error(f"Error creating agents: {e}")
         import traceback
@@ -618,8 +658,13 @@ Please respond to continue the discussion."""
 
             current_agent = agents[current_agent_idx]
 
+            # Get agent class from profile if available
+            agent_class = None
+            if agents_profiles and current_agent_idx < len(agents_profiles):
+                agent_class = agents_profiles[current_agent_idx].primary_class
+
             # Display turn header
-            DisplayFormatter.print_turn_header(turn, current_agent.agent_name)
+            DisplayFormatter.print_turn_header(turn, current_agent.agent_name, agent_class)
 
             # Get streaming response
             try:
@@ -758,6 +803,98 @@ Please respond to continue the discussion."""
 
         print("\n✅ Conversation saved to database")
         print(f"   ID: {conv_manager.conversation_id}")
+
+        # Generate AI summary if available
+        if summarizer:
+            try:
+                print("\n" + "="*60)
+                print("📊 Generating Post-Conversation Intelligence Report...")
+                print("="*60)
+                print("   Using GPT-4o-mini for comprehensive analysis...")
+                print("   This may take 20-30 seconds...\n")
+
+                import time
+                start_time = time.time()
+
+                # Prepare agents data
+                agents_array = []
+                if agents_profiles:
+                    # Dynamic agents - use profiles
+                    for profile in agents_profiles:
+                        agents_array.append({
+                            'name': profile.name,
+                            'qualification': profile.primary_class
+                        })
+                else:
+                    # Static agents - use config
+                    agents_array = [
+                        {'name': config['agent_a']['name'], 'qualification': 'General Expert'},
+                        {'name': config['agent_b']['name'], 'qualification': 'General Expert'}
+                    ]
+
+                # Generate summary
+                result = summarizer.generate_summary(
+                    conversation_title=conv_manager.metadata.get('title', 'Untitled'),
+                    initial_prompt=conv_manager.metadata.get('initial_prompt', ''),
+                    exchanges=conv_manager.exchanges,
+                    agents=agents_array,
+                    total_turns=len(conv_manager.exchanges),
+                    total_tokens=total_tokens,
+                    total_cost=total_cost
+                )
+
+                generation_time_ms = int((time.time() - start_time) * 1000)
+
+                # Save to database
+                summary_id = db.save_conversation_summary(
+                    conversation_id=conv_manager.conversation_id,
+                    summary_data=result['summary_data'],
+                    generation_model=result['model'],
+                    input_tokens=result['input_tokens'],
+                    output_tokens=result['output_tokens'],
+                    total_tokens=result['total_tokens'],
+                    generation_cost=result['cost'],
+                    generation_time_ms=generation_time_ms
+                )
+
+                # Display summary preview
+                summary_data = result['summary_data']
+                print("\n✅ Summary Generated Successfully!")
+                print("="*60)
+                print(f"📝 TL;DR:")
+                print(f"   {summary_data.get('tldr', 'N/A')}\n")
+
+                # Show stats
+                print(f"📊 Generation Stats:")
+                print(f"   • Model: {result['model']}")
+                print(f"   • Tokens: {result['total_tokens']:,} ({result['input_tokens']:,} in, {result['output_tokens']:,} out)")
+                print(f"   • Cost: ${result['cost']:.4f}")
+                print(f"   • Time: {generation_time_ms/1000:.1f}s")
+                print(f"   • Summary ID: {summary_id[:8]}...")
+
+                # Show preview of key sections
+                if 'key_insights' in summary_data and summary_data['key_insights']:
+                    print(f"\n💡 Key Insights ({len(summary_data['key_insights'])} found):")
+                    for i, insight in enumerate(summary_data['key_insights'][:2], 1):
+                        print(f"   {i}. {insight.get('insight', 'N/A')[:80]}...")
+
+                if 'technical_glossary' in summary_data and summary_data['technical_glossary']:
+                    print(f"\n📚 Technical Terms ({len(summary_data['technical_glossary'])} identified):")
+                    for i, term in enumerate(summary_data['technical_glossary'][:3], 1):
+                        print(f"   {i}. {term.get('term', 'N/A')}: {term.get('definition', 'N/A')[:60]}...")
+
+                if 'collaboration_dynamics' in summary_data:
+                    collab = summary_data['collaboration_dynamics']
+                    friendliest = collab.get('friendliest_agent', 'Unknown')
+                    print(f"\n🤝 Most Collaborative Agent: {friendliest}")
+
+                print("\n💡 Full summary available in web UI or via database query")
+                print("="*60)
+
+            except Exception as e:
+                print(f"\n⚠️  Failed to generate summary: {e}")
+                print("   Conversation saved successfully, but summary generation failed.")
+
         print("="*60)
 
         # Phase 2: Rating and leaderboard (only if using dynamic agents)
@@ -767,17 +904,31 @@ Please respond to continue the discussion."""
                 print("📊 PERFORMANCE EVALUATION")
                 print("━"*60)
 
+                # Ask user if they want to rate
+                rate_choice = input("\nRate agents? [Y/n]: ").strip().lower()
+
                 # Get agent IDs from profiles (relative to .claude/agents/, without .md)
                 agent_ids = [profile.agent_file_path.replace('.claude/agents/', '').replace('.md', '')
                             for profile in agents_profiles]
 
-                # Rate agents interactively
-                promotions = asyncio.run(
-                    agent_coordinator.rate_agents_interactive(
-                        agent_ids,
-                        conv_manager.conversation_id
+                if rate_choice and rate_choice != 'y':
+                    # User chose not to rate - grant participation points instead
+                    print("\n⏭️  Skipping detailed ratings, granting participation points...")
+                    asyncio.run(
+                        agent_coordinator.grant_participation_points(
+                            agent_ids,
+                            conv_manager.conversation_id
+                        )
                     )
-                )
+                    promotions = {}
+                else:
+                    # User wants to rate - proceed with full rating flow
+                    promotions = asyncio.run(
+                        agent_coordinator.rate_agents_interactive(
+                            agent_ids,
+                            conv_manager.conversation_id
+                        )
+                    )
 
                 # Display leaderboard
                 print("\n" + "━"*60)

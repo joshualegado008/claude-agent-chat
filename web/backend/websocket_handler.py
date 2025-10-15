@@ -438,6 +438,9 @@ Please respond to continue the discussion."""
             "total_cost": total_cost
         })
 
+        # Generate conversation summary
+        await self._generate_summary(websocket, total_tokens, total_cost)
+
     async def _listen_for_commands(self, websocket: WebSocket):
         """
         Listen for commands from the client (pause, resume, stop).
@@ -561,6 +564,116 @@ Please respond to continue the discussion."""
 
         except Exception as e:
             print(f"Command listener error: {e}")
+
+    async def _generate_summary(
+        self,
+        websocket: WebSocket,
+        total_tokens: int,
+        total_cost: float
+    ):
+        """
+        Generate comprehensive conversation summary using GPT-4o-mini.
+
+        Args:
+            websocket: WebSocket connection
+            total_tokens: Total tokens used in conversation
+            total_cost: Total cost of conversation
+        """
+        # Check if summarizer is available
+        summarizer = self.bridge.get_summarizer()
+
+        if not summarizer:
+            print("⚠️  Conversation summarizer not available, skipping summary generation")
+            await websocket.send_json({
+                "type": "summary_unavailable",
+                "message": "Summary generation not available"
+            })
+            return
+
+        try:
+            # Notify client that summary generation is starting
+            await websocket.send_json({
+                "type": "summary_generation_start",
+                "message": "Generating conversation summary..."
+            })
+
+            print(f"\n📊 Generating conversation summary for {self.conversation_id}...")
+
+            # Get conversation data
+            conversation_title = self.conv_manager.metadata.get('title', 'Untitled')
+            initial_prompt = self.conv_manager.metadata.get('initial_prompt', '')
+            exchanges = self.conv_manager.exchanges
+            total_turns = self.conv_manager.current_turn
+
+            # Get agents data
+            agents_array = self.conv_manager.metadata.get('agents')
+            if not agents_array:
+                # Fallback to legacy format
+                agents_array = [
+                    {
+                        'id': self.conv_manager.metadata.get('agent_a_id'),
+                        'name': self.conv_manager.metadata.get('agent_a_name'),
+                        'qualification': None
+                    },
+                    {
+                        'id': self.conv_manager.metadata.get('agent_b_id'),
+                        'name': self.conv_manager.metadata.get('agent_b_name'),
+                        'qualification': None
+                    }
+                ]
+
+            # Generate summary
+            result = summarizer.generate_summary(
+                conversation_title=conversation_title,
+                initial_prompt=initial_prompt,
+                exchanges=exchanges,
+                agents=agents_array,
+                total_turns=total_turns,
+                total_tokens=total_tokens,
+                total_cost=total_cost
+            )
+
+            # Save summary to database
+            db = self.bridge.get_database_manager()
+            summary_id = db.save_conversation_summary(
+                conversation_id=self.conversation_id,
+                summary_data=result['summary_data'],
+                generation_model='gpt-4o-mini',
+                input_tokens=result['summary_data']['generation_metadata']['input_tokens'],
+                output_tokens=result['summary_data']['generation_metadata']['output_tokens'],
+                total_tokens=result['tokens_used'],
+                generation_cost=result['generation_cost'],
+                generation_time_ms=result['generation_time_ms']
+            )
+
+            print(f"   ✅ Summary generated successfully!")
+            print(f"   Tokens: {result['tokens_used']}")
+            print(f"   Cost: ${result['generation_cost']:.4f}")
+            print(f"   Time: {result['generation_time_ms']}ms")
+            print(f"   Summary ID: {summary_id}")
+
+            # Send summary to client
+            await websocket.send_json({
+                "type": "summary_generated",
+                "summary": result['summary_data'],
+                "metadata": {
+                    "summary_id": summary_id,
+                    "tokens_used": result['tokens_used'],
+                    "generation_cost": result['generation_cost'],
+                    "generation_time_ms": result['generation_time_ms'],
+                    "model": "gpt-4o-mini"
+                }
+            })
+
+        except Exception as e:
+            print(f"❌ Failed to generate summary: {e}")
+            import traceback
+            traceback.print_exc()
+
+            await websocket.send_json({
+                "type": "summary_error",
+                "message": f"Failed to generate summary: {str(e)}"
+            })
 
     async def cleanup(self):
         """Cleanup resources."""

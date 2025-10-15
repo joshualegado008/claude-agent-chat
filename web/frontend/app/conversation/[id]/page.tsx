@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, MessageSquare, Play, Trash2 } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Play, Trash2, FileText } from 'lucide-react';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useConversation, useDeleteConversation } from '@/hooks/useConversations';
 import { AgentMessage, TypingIndicator } from '@/components/AgentMessage';
@@ -10,10 +10,12 @@ import { ConversationControls } from '@/components/ConversationControls';
 import { InterruptDashboard } from '@/components/InterruptDashboard';
 import { InjectContentModal } from '@/components/InjectContentModal';
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
+import { ConversationSummaryDisplay } from '@/components/ConversationSummary';
 import { ToolUseList } from '@/components/ToolUseMessage';
 import { LoadingScreen } from '@/components/Loading';
 import { formatNumber, formatCost } from '@/lib/utils';
 import { calculateHistoricalStats } from '@/lib/costCalculator';
+import type { ConversationSummary } from '@/types';
 
 export default function ConversationPage() {
   const params = useParams();
@@ -40,6 +42,9 @@ export default function ConversationPage() {
   const [showInjectModal, setShowInjectModal] = useState(false);
   const [isInjecting, setIsInjecting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
+  const [summaryData, setSummaryData] = useState<ConversationSummary | null>(null);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Calculate historical stats from exchanges (MUST be before early returns)
@@ -102,6 +107,30 @@ export default function ConversationPage() {
 
   const handleDeleteCancel = () => {
     setShowDeleteDialog(false);
+  };
+
+  const handleViewSummary = async () => {
+    if (summaryData) {
+      // Already loaded, just show it
+      setShowSummary(true);
+      return;
+    }
+
+    setIsLoadingSummary(true);
+    try {
+      const response = await fetch(`http://localhost:8000/api/conversations/${conversationId}/summary`);
+      if (response.ok) {
+        const data = await response.json();
+        setSummaryData(data);
+        setShowSummary(true);
+      } else {
+        console.error('Failed to fetch summary:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Error fetching summary:', error);
+    } finally {
+      setIsLoadingSummary(false);
+    }
   };
 
   if (isLoadingData) {
@@ -314,10 +343,21 @@ export default function ConversationPage() {
             {/* Completed indicator */}
             {isComplete && !showContinueButton && (
               <div className="text-center py-4">
-                <div className="inline-block px-6 py-3 bg-green-900/30 border border-green-700 rounded-lg">
+                <div className="inline-flex items-center space-x-4 px-6 py-3 bg-green-900/30 border border-green-700 rounded-lg">
                   <p className="text-green-300 font-medium">
                     ✅ Conversation Complete
                   </p>
+                  {conversationData.has_summary && (
+                    <button
+                      onClick={handleViewSummary}
+                      disabled={isLoadingSummary}
+                      className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="View AI-generated Post-Conversation Intelligence Report"
+                    >
+                      <FileText className="w-4 h-4" />
+                      <span>{isLoadingSummary ? 'Loading...' : 'View Summary'}</span>
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -524,6 +564,15 @@ export default function ConversationPage() {
           totalTurns={conversationData.total_turns}
           createdAt={conversationData.created_at}
           isDeleting={deleteConversation.isPending}
+        />
+      )}
+
+      {/* Summary Modal */}
+      {showSummary && summaryData && (
+        <ConversationSummaryDisplay
+          summary={summaryData}
+          conversationTitle={title}
+          onClose={() => setShowSummary(false)}
         />
       )}
     </div>

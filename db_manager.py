@@ -469,6 +469,137 @@ class DatabaseManager:
             print(f"Error deleting conversation: {e}")
             return False
 
+    def save_conversation_summary(
+        self,
+        conversation_id: str,
+        summary_data: Dict,
+        generation_model: str,
+        input_tokens: int,
+        output_tokens: int,
+        total_tokens: int,
+        generation_cost: float,
+        generation_time_ms: int
+    ) -> str:
+        """
+        Save AI-generated conversation summary.
+
+        Args:
+            conversation_id: UUID of the conversation
+            summary_data: Complete summary JSON structure
+            generation_model: Model used (e.g., "gpt-4o-mini")
+            input_tokens: Input tokens used
+            output_tokens: Output tokens used
+            total_tokens: Total tokens used
+            generation_cost: Cost in USD
+            generation_time_ms: Generation time in milliseconds
+
+        Returns:
+            summary_id: UUID of the created summary
+        """
+        try:
+            with self.pg_conn.cursor() as cursor:
+                cursor.execute("""
+                    INSERT INTO ai_summaries
+                    (conversation_id, summary_data, generation_model, input_tokens,
+                     output_tokens, total_tokens, generation_cost, generation_time_ms)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (conversation_id)
+                    DO UPDATE SET
+                        summary_data = EXCLUDED.summary_data,
+                        generation_model = EXCLUDED.generation_model,
+                        input_tokens = EXCLUDED.input_tokens,
+                        output_tokens = EXCLUDED.output_tokens,
+                        total_tokens = EXCLUDED.total_tokens,
+                        generation_cost = EXCLUDED.generation_cost,
+                        generation_time_ms = EXCLUDED.generation_time_ms,
+                        generated_at = CURRENT_TIMESTAMP
+                    RETURNING id
+                """, (
+                    conversation_id,
+                    Json(summary_data),
+                    generation_model,
+                    input_tokens,
+                    output_tokens,
+                    total_tokens,
+                    generation_cost,
+                    generation_time_ms
+                ))
+
+                summary_id = cursor.fetchone()[0]
+                self.pg_conn.commit()
+
+                return str(summary_id)
+
+        except Exception as e:
+            self.pg_conn.rollback()
+            print(f"Error saving conversation summary: {e}")
+            raise
+
+    def get_conversation_summary(self, conversation_id: str) -> Optional[Dict]:
+        """
+        Retrieve conversation summary.
+
+        Args:
+            conversation_id: UUID of the conversation
+
+        Returns:
+            Dict containing summary data and metadata, or None if not found
+        """
+        try:
+            with self.pg_conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    SELECT
+                        id,
+                        conversation_id,
+                        summary_data,
+                        generation_model,
+                        input_tokens,
+                        output_tokens,
+                        total_tokens,
+                        generation_cost,
+                        generation_time_ms,
+                        generated_at
+                    FROM ai_summaries
+                    WHERE conversation_id = %s
+                """, (conversation_id,))
+
+                result = cursor.fetchone()
+
+                if not result:
+                    return None
+
+                return dict(result)
+
+        except Exception as e:
+            self.pg_conn.rollback()
+            print(f"Error retrieving conversation summary: {e}")
+            return None
+
+    def conversation_has_summary(self, conversation_id: str) -> bool:
+        """
+        Check if a conversation has a summary.
+
+        Args:
+            conversation_id: UUID of the conversation
+
+        Returns:
+            True if summary exists, False otherwise
+        """
+        try:
+            with self.pg_conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT EXISTS (
+                        SELECT 1 FROM ai_summaries
+                        WHERE conversation_id = %s
+                    )
+                """, (conversation_id,))
+
+                return cursor.fetchone()[0]
+
+        except Exception as e:
+            print(f"Error checking for summary: {e}")
+            return False
+
     def close(self):
         """Close database connections."""
         self.pg_conn.close()

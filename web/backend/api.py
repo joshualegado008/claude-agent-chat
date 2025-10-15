@@ -94,10 +94,15 @@ async def list_conversations(limit: int = 20, status: Optional[str] = None):
         conversations = browser.list_recent(limit=limit)
 
         # Convert to serializable format
+        db = bridge.get_database_manager()
         result = []
         for conv in conversations:
+            conv_id = str(conv.get("id"))
+            # Check if this conversation has a summary
+            has_summary = db.conversation_has_summary(conv_id)
+
             result.append({
-                "id": str(conv.get("id")),
+                "id": conv_id,
                 "title": conv.get("title"),
                 "initial_prompt": conv.get("initial_prompt"),
                 "agent_a_name": conv.get("agent_a_name"),
@@ -106,6 +111,7 @@ async def list_conversations(limit: int = 20, status: Optional[str] = None):
                 "total_tokens": conv.get("total_tokens", 0),
                 "status": conv.get("status"),
                 "tags": conv.get("tags", []),
+                "has_summary": has_summary,
                 "created_at": conv.get("created_at").isoformat() if isinstance(conv.get("created_at"), datetime) else conv.get("created_at"),
                 "updated_at": conv.get("updated_at").isoformat() if isinstance(conv.get("updated_at"), datetime) else conv.get("updated_at")
             })
@@ -213,6 +219,9 @@ async def get_conversation(conversation_id: str):
                 }
             ]
 
+        # Check if this conversation has a summary
+        has_summary = db.conversation_has_summary(conversation_id)
+
         return {
             "id": str(conversation.get("id")),
             "title": conversation.get("title"),
@@ -232,6 +241,7 @@ async def get_conversation(conversation_id: str):
             "total_tokens": conversation.get("total_tokens", 0),
             "status": conversation.get("status"),
             "tags": conversation.get("tags", []),
+            "has_summary": has_summary,
             "created_at": conversation.get("created_at").isoformat() if isinstance(conversation.get("created_at"), datetime) else conversation.get("created_at"),
             "updated_at": conversation.get("updated_at").isoformat() if isinstance(conversation.get("updated_at"), datetime) else conversation.get("updated_at"),
             "exchanges": [
@@ -423,6 +433,45 @@ async def search_conversations(request: SearchRequest):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+
+@app.get("/api/conversations/{conversation_id}/summary")
+async def get_conversation_summary(conversation_id: str):
+    """Get AI-generated summary for a conversation."""
+    bridge = get_bridge()
+    db = bridge.get_database_manager()
+
+    try:
+        # Check if conversation exists
+        conversation_data = db.load_conversation(conversation_id)
+        if not conversation_data:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+
+        # Get summary
+        summary = db.get_conversation_summary(conversation_id)
+
+        if not summary:
+            raise HTTPException(status_code=404, detail="Summary not found for this conversation")
+
+        # Convert datetime to ISO format for JSON serialization
+        summary_response = {
+            "id": str(summary.get("id")),
+            "conversation_id": str(summary.get("conversation_id")),
+            "summary_data": summary.get("summary_data"),
+            "generation_model": summary.get("generation_model"),
+            "input_tokens": summary.get("input_tokens"),
+            "output_tokens": summary.get("output_tokens"),
+            "total_tokens": summary.get("total_tokens"),
+            "generation_cost": float(summary.get("generation_cost", 0.0)),
+            "generation_time_ms": summary.get("generation_time_ms"),
+            "generated_at": summary.get("generated_at").isoformat() if isinstance(summary.get("generated_at"), datetime) else summary.get("generated_at")
+        }
+
+        return summary_response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve summary: {str(e)}")
 
 @app.delete("/api/conversations/{conversation_id}")
 async def delete_conversation(conversation_id: str):

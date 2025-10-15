@@ -2,6 +2,8 @@
 Interactive menu system for managing conversations
 """
 
+import sys
+import time
 from typing import Optional, Tuple
 from datetime import datetime
 from db_manager import DatabaseManager
@@ -14,6 +16,27 @@ from metadata_extractor import MetadataExtractor
 
 class ConversationMenu:
     """Interactive menu for conversation management."""
+
+    @staticmethod
+    def _flush_stdin():
+        """
+        Flush stdin buffer to prevent stray input from interfering with prompts.
+
+        This clears any leftover characters in the input buffer that might cause
+        input() calls to return immediately without waiting for user input.
+        """
+        try:
+            import termios
+            termios.tcflush(sys.stdin, termios.TCIFLUSH)
+        except (ImportError, AttributeError):
+            # termios not available (Windows) - try alternative
+            try:
+                import msvcrt
+                while msvcrt.kbhit():
+                    msvcrt.getch()
+            except ImportError:
+                # Neither available - do nothing
+                pass
 
     def __init__(self, db_manager: DatabaseManager):
         self.db = db_manager
@@ -263,6 +286,9 @@ class ConversationMenu:
                     # Show conversation preview
                     self._show_conversation_preview(conv_id)
 
+                    # Check if summary is available
+                    has_summary = self.db.conversation_has_summary(conv_id)
+
                     # Show action submenu
                     print("\n" + "="*60)
                     print("What would you like to do with this conversation?")
@@ -270,9 +296,15 @@ class ConversationMenu:
                     print("  1. 👁️  View full conversation")
                     print("  2. ▶️  Continue conversation")
                     print("  3. 🗑️  Delete conversation")
-                    print("  4. ◀️  Back to conversation list")
+                    if has_summary:
+                        print("  4. 📊 View AI Summary")
+                        print("  5. ◀️  Back to conversation list")
+                        max_choice = 5
+                    else:
+                        print("  4. ◀️  Back to conversation list")
+                        max_choice = 4
 
-                    action = input("\nChoice (1-4): ").strip()
+                    action = input(f"\nChoice (1-{max_choice}): ").strip()
 
                     if action == '1':
                         # View full conversation
@@ -291,11 +323,21 @@ class ConversationMenu:
                         continue
 
                     elif action == '4':
+                        if has_summary:
+                            # View AI Summary
+                            self._show_conversation_summary(conv_id)
+                            # After viewing, return to conversation list
+                            continue
+                        else:
+                            # Back to conversation list
+                            continue
+
+                    elif action == '5' and has_summary:
                         # Back to conversation list
                         continue
 
                     else:
-                        print("\n❌ Invalid choice. Please enter 1-4.")
+                        print(f"\n❌ Invalid choice. Please enter 1-{max_choice}.")
                         input("Press Enter to continue...")
                         continue
 
@@ -629,6 +671,180 @@ class ConversationMenu:
         print("\n" + manager.get_full_history())
         input("\nPress Enter to continue...")
 
+    def _show_conversation_summary(self, conversation_id: str):
+        """Show AI-generated Post-Conversation Intelligence Report."""
+
+        # Fetch summary from database
+        summary = self.db.get_conversation_summary(conversation_id)
+
+        if not summary:
+            print("\n❌ No summary available for this conversation.")
+            input("\nPress Enter to continue...")
+            return
+
+        summary_data = summary.get('summary_data', {})
+
+        # Header
+        print("\n" + "╔" + "═"*98 + "╗")
+        print("║" + " "*28 + "📊 POST-CONVERSATION INTELLIGENCE REPORT" + " "*29 + "║")
+        print("╚" + "═"*98 + "╝")
+
+        # TL;DR Section (always visible)
+        print("\n" + "="*100)
+        print("📝 TL;DR")
+        print("="*100)
+        print(f"\n{summary_data.get('tldr', 'N/A')}\n")
+
+        # Executive Summary
+        if 'executive_summary' in summary_data:
+            print("="*100)
+            print("📋 EXECUTIVE SUMMARY")
+            print("="*100)
+            print(f"\n{summary_data['executive_summary']}\n")
+
+        # Key Insights
+        if 'key_insights' in summary_data and summary_data['key_insights']:
+            print("="*100)
+            print(f"💡 KEY INSIGHTS & EMERGENT IDEAS ({len(summary_data['key_insights'])} insights)")
+            print("="*100)
+            for i, insight in enumerate(summary_data['key_insights'], 1):
+                print(f"\n{i}. {insight.get('insight', 'N/A')}")
+                print(f"   Significance: {insight.get('significance', 'N/A')}")
+                if 'emerged_at_turn' in insight:
+                    print(f"   Emerged at turn: {insight['emerged_at_turn']}")
+
+        # Technical Glossary
+        if 'technical_glossary' in summary_data and summary_data['technical_glossary']:
+            print("\n" + "="*100)
+            print(f"📚 TECHNICAL GLOSSARY ({len(summary_data['technical_glossary'])} terms)")
+            print("="*100)
+            for i, term in enumerate(summary_data['technical_glossary'], 1):
+                print(f"\n{i}. {term.get('term', 'N/A')}")
+                print(f"   Definition: {term.get('definition', 'N/A')}")
+                if 'pronunciation' in term:
+                    print(f"   Pronunciation: {term['pronunciation']}")
+                if 'difficulty' in term:
+                    difficulty_emoji = {'beginner': '🟢', 'intermediate': '🟡', 'advanced': '🔴'}
+                    emoji = difficulty_emoji.get(term['difficulty'], '')
+                    print(f"   Difficulty: {emoji} {term['difficulty'].title()}")
+                if 'context' in term:
+                    print(f"   Context: {term['context']}")
+
+        # Vocabulary Highlights
+        if 'vocabulary_highlights' in summary_data and summary_data['vocabulary_highlights']:
+            print("\n" + "="*100)
+            print(f"📖 VOCABULARY HIGHLIGHTS ({len(summary_data['vocabulary_highlights'])} words)")
+            print("="*100)
+            for i, word in enumerate(summary_data['vocabulary_highlights'], 1):
+                print(f"\n{i}. {word.get('word', 'N/A')}")
+                print(f"   Definition: {word.get('definition', 'N/A')}")
+                if 'pronunciation' in word:
+                    print(f"   Pronunciation: {word['pronunciation']}")
+                if 'usage_example' in word:
+                    print(f"   Example: {word['usage_example']}")
+                if 'why_interesting' in word:
+                    print(f"   Why interesting: {word['why_interesting']}")
+
+        # Agent Contribution Analysis
+        if 'agent_contributions' in summary_data and summary_data['agent_contributions']:
+            print("\n" + "="*100)
+            print(f"🤖 AGENT CONTRIBUTION ANALYSIS ({len(summary_data['agent_contributions'])} agents)")
+            print("="*100)
+            for i, agent in enumerate(summary_data['agent_contributions'], 1):
+                print(f"\n{i}. {agent.get('agent_name', 'N/A')} - {agent.get('qualification', 'N/A')}")
+                print(f"   Turns: {agent.get('turn_count', 0)}")
+                print(f"   Engagement: {agent.get('engagement_level', 'N/A').title()}")
+                print(f"   Communication Style: {agent.get('communication_style', 'N/A')}")
+
+                if 'key_concepts' in agent and agent['key_concepts']:
+                    concepts = ', '.join(agent['key_concepts'][:5])
+                    if len(agent['key_concepts']) > 5:
+                        concepts += f" (+{len(agent['key_concepts']) - 5} more)"
+                    print(f"   Key Concepts: {concepts}")
+
+                if 'technical_terms_introduced' in agent and agent['technical_terms_introduced']:
+                    terms = ', '.join(agent['technical_terms_introduced'][:3])
+                    if len(agent['technical_terms_introduced']) > 3:
+                        terms += f" (+{len(agent['technical_terms_introduced']) - 3} more)"
+                    print(f"   Technical Terms: {terms}")
+
+                if 'novel_insights' in agent and agent['novel_insights']:
+                    print(f"   Novel Insights: {len(agent['novel_insights'])} contributed")
+
+        # Collaboration Dynamics
+        if 'collaboration_dynamics' in summary_data:
+            collab = summary_data['collaboration_dynamics']
+            print("\n" + "="*100)
+            print("🤝 COLLABORATION DYNAMICS")
+            print("="*100)
+            print(f"\n🏆 Friendliest Agent: {collab.get('friendliest_agent', 'Unknown')}")
+            print(f"   Overall Quality: {collab.get('overall_quality', 'N/A').title()}")
+            print(f"   Interaction Pattern: {collab.get('interaction_pattern', 'N/A').title()}")
+
+            if 'points_of_convergence' in collab and collab['points_of_convergence']:
+                print(f"\n   Points of Convergence:")
+                for point in collab['points_of_convergence'][:3]:
+                    print(f"     • {point}")
+
+            if 'points_of_divergence' in collab and collab['points_of_divergence']:
+                print(f"\n   Points of Divergence:")
+                for point in collab['points_of_divergence'][:3]:
+                    print(f"     • {point}")
+
+        # Named Entities
+        if 'named_entities' in summary_data:
+            entities = summary_data['named_entities']
+            has_entities = any([
+                entities.get('urls'),
+                entities.get('people'),
+                entities.get('locations'),
+                entities.get('publications'),
+                entities.get('organizations')
+            ])
+
+            if has_entities:
+                print("\n" + "="*100)
+                print("🔗 NAMED ENTITIES & REFERENCES")
+                print("="*100)
+
+                if entities.get('urls'):
+                    print(f"\n   URLs Referenced ({len(entities['urls'])}):")
+                    for url in entities['urls'][:5]:
+                        print(f"     • {url}")
+
+                if entities.get('people'):
+                    print(f"\n   People Mentioned: {', '.join(entities['people'][:10])}")
+
+                if entities.get('locations'):
+                    print(f"\n   Locations: {', '.join(entities['locations'][:10])}")
+
+                if entities.get('publications'):
+                    print(f"\n   Publications: {', '.join(entities['publications'][:10])}")
+
+                if entities.get('organizations'):
+                    print(f"\n   Organizations: {', '.join(entities['organizations'][:10])}")
+
+        # Learning Outcomes
+        if 'learning_outcomes' in summary_data and summary_data['learning_outcomes']:
+            print("\n" + "="*100)
+            print("🎓 LEARNING OUTCOMES")
+            print("="*100)
+            for i, outcome in enumerate(summary_data['learning_outcomes'], 1):
+                print(f"\n{i}. {outcome}")
+
+        # Generation Metadata
+        print("\n" + "="*100)
+        print("📊 GENERATION METADATA")
+        print("="*100)
+        print(f"\n   Model: {summary.get('generation_model', 'N/A')}")
+        print(f"   Tokens: {summary.get('total_tokens', 0):,} ({summary.get('input_tokens', 0):,} in, {summary.get('output_tokens', 0):,} out)")
+        print(f"   Cost: ${summary.get('generation_cost', 0):.4f}")
+        print(f"   Generation Time: {summary.get('generation_time_ms', 0)/1000:.1f}s")
+        print(f"   Generated: {summary.get('generated_at', 'N/A')}")
+
+        print("\n" + "="*100)
+        input("\nPress Enter to continue...")
+
     def get_new_conversation_details(self) -> Optional[dict]:
         """Get details for starting a new conversation."""
 
@@ -636,8 +852,28 @@ class ConversationMenu:
         print("🆕 Starting a New Conversation")
         print("="*60)
 
-        # Get title
-        title = input("\nConversation title: ").strip()
+        # Get title - support multi-line paste (URLs often get split across lines)
+        print("\nConversation title:")
+        print("(Paste your title - can be multiple lines. Press Enter twice when done)")
+
+        lines = []
+        try:
+            while True:
+                line = input()
+                if not line:
+                    # Empty line - if we have content, we're done
+                    if lines:
+                        break
+                    # Otherwise, keep waiting for input
+                    continue
+                lines.append(line)
+        except KeyboardInterrupt:
+            print("\n\n❌ Cancelled.")
+            return None
+
+        # Join lines with spaces to create a single title
+        title = " ".join(lines).strip()
+
         if not title:
             print("❌ Title is required.")
             return None
@@ -660,11 +896,31 @@ class ConversationMenu:
                 print(f"🏷️  Auto-generated Tags: {', '.join(tags)}")
                 print()
 
-                # Confirm with user
+                # Confirm with user - flush stdin first to prevent auto-cancellation
+                self._flush_stdin()
+                time.sleep(0.1)  # Brief delay to ensure terminal is ready
+
                 confirm = input("Use this prompt and tags? [Y/n]: ").strip().lower()
-                if confirm and confirm != 'y':
+
+                # Debug: Show what was actually received (helps diagnose issues)
+                if not confirm:
+                    # Empty input (user pressed Enter) - treat as "yes"
+                    pass
+                elif confirm == 'y':
+                    # Explicit yes
+                    pass
+                elif confirm == 'n':
+                    # Explicit no
                     print("❌ Cancelled.")
                     return None
+                else:
+                    # Unexpected input - show what was received and ask again
+                    print(f"\n⚠️  Unexpected input received: '{confirm}'")
+                    print("   Expected: Enter (yes), 'y' (yes), or 'n' (no)")
+                    retry = input("\n   Would you like to use the generated prompt? [Y/n]: ").strip().lower()
+                    if retry and retry != 'y':
+                        print("❌ Cancelled.")
+                        return None
 
                 return {
                     'title': title,

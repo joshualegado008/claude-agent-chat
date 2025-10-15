@@ -32,6 +32,18 @@ try:
 except ImportError:
     METADATA_AVAILABLE = False
 
+try:
+    from conversation_summarizer import ConversationSummarizer
+    SUMMARIZER_AVAILABLE = True
+except ImportError:
+    SUMMARIZER_AVAILABLE = False
+
+try:
+    from src.agent_coordinator import AgentCoordinator
+    AGENT_COORDINATOR_AVAILABLE = True
+except ImportError:
+    AGENT_COORDINATOR_AVAILABLE = False
+
 
 class BackendBridge:
     """
@@ -61,6 +73,32 @@ class BackendBridge:
             except Exception as e:
                 print(f"   ❌ Warning: Metadata extractor not available: {e}")
 
+        # Initialize conversation summarizer if OpenAI key available
+        self.summarizer = None
+        print(f"   SUMMARIZER_AVAILABLE: {SUMMARIZER_AVAILABLE}")
+
+        if SUMMARIZER_AVAILABLE:
+            try:
+                openai_key = self.settings.get_openai_api_key()
+                if openai_key:
+                    self.summarizer = ConversationSummarizer(api_key=openai_key)
+                    print(f"   ✅ ConversationSummarizer initialized successfully")
+                else:
+                    print(f"   ⚠️  OpenAI key not found, summarizer unavailable")
+            except Exception as e:
+                print(f"   ❌ Warning: Conversation summarizer not available: {e}")
+
+        # Initialize agent coordinator for dynamic agent selection
+        self.agent_coordinator = None
+        print(f"   AGENT_COORDINATOR_AVAILABLE: {AGENT_COORDINATOR_AVAILABLE}")
+
+        if AGENT_COORDINATOR_AVAILABLE:
+            try:
+                self.agent_coordinator = AgentCoordinator(verbose=False)
+                print(f"   ✅ AgentCoordinator initialized successfully")
+            except Exception as e:
+                print(f"   ❌ Warning: Agent coordinator not available: {e}")
+
     def get_database_manager(self) -> DatabaseManager:
         """Get the database manager instance."""
         return self.db
@@ -84,6 +122,14 @@ class BackendBridge:
     def get_metadata_extractor(self):
         """Get metadata extractor if available."""
         return self.metadata_extractor
+
+    def get_summarizer(self):
+        """Get conversation summarizer if available."""
+        return self.summarizer
+
+    def get_agent_coordinator(self):
+        """Get agent coordinator for dynamic agent selection."""
+        return self.agent_coordinator
 
     def close(self):
         """Close database connections."""

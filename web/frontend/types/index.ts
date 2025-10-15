@@ -29,6 +29,7 @@ export interface Conversation {
   total_tokens: number;
   status: 'active' | 'completed' | 'paused' | 'archived';
   tags: string[];
+  has_summary?: boolean;
   created_at: string;
   updated_at: string;
   exchanges?: Exchange[];
@@ -121,6 +122,10 @@ export type WebSocketMessageType =
   | 'metadata_unavailable'
   | 'tool_use'
   | 'injected'
+  | 'summary_generation_start'
+  | 'summary_generated'
+  | 'summary_error'
+  | 'summary_unavailable'
   | 'error';
 
 export interface WebSocketMessage {
@@ -186,4 +191,106 @@ export interface AgentSelectionMetadata {
 export interface AgentSelectionResponse {
   agents: AgentProfile[];
   metadata: AgentSelectionMetadata;
+}
+
+// Conversation Summary Types (Post-Conversation Intelligence Report)
+
+export interface KeyInsight {
+  insight: string;
+  significance: string;
+  emerged_at_turn?: number;
+}
+
+export interface TechnicalTerm {
+  term: string;
+  definition: string;
+  pronunciation?: string;
+  context?: string;
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+}
+
+export interface VocabularyHighlight {
+  word: string;
+  definition: string;
+  pronunciation?: string;
+  usage_example?: string;
+  why_interesting?: string;
+}
+
+export interface AgentContribution {
+  agent_name: string;
+  qualification: string;
+  key_concepts: string[];
+  technical_terms_introduced: string[];
+  novel_insights: string[];
+  turn_count: number;
+  engagement_level: 'high' | 'medium' | 'low';
+  communication_style: string;
+}
+
+export interface CollaborativeMoment {
+  turn_range: string;
+  description: string;
+}
+
+export interface CollaborationDynamics {
+  overall_quality: 'high' | 'medium' | 'low';
+  interaction_pattern: 'agreement' | 'debate' | 'synthesis' | 'exploration';
+  most_collaborative_moments: CollaborativeMoment[];
+  points_of_convergence: string[];
+  points_of_divergence: string[];
+  friendliest_agent: string;
+}
+
+export interface NamedEntities {
+  people: string[];
+  organizations: string[];
+  locations: string[];
+  publications: string[];
+  urls: string[];
+}
+
+export interface ConversationStats {
+  total_turns: number;
+  total_tokens: number;
+  total_cost: number;
+  combined_cost: number;
+}
+
+export interface GenerationMetadata {
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  generation_cost: number;
+  generation_time_ms: number;
+  generated_at: string;
+  conversation_stats: ConversationStats;
+  note?: string;
+}
+
+export interface SummaryData {
+  tldr: string;
+  executive_summary: string;
+  key_insights: KeyInsight[];
+  technical_glossary: TechnicalTerm[];
+  vocabulary_highlights: VocabularyHighlight[];
+  agent_contributions: AgentContribution[];
+  collaboration_dynamics: CollaborationDynamics;
+  named_entities: NamedEntities;
+  learning_outcomes: string[];
+  generation_metadata: GenerationMetadata;
+}
+
+export interface ConversationSummary {
+  id: string;
+  conversation_id: string;
+  summary_data: SummaryData;
+  generation_model: string;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  generation_cost: number;
+  generation_time_ms: number;
+  generated_at: string;
 }
