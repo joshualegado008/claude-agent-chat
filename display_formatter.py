@@ -921,3 +921,135 @@ class DisplayFormatter:
         else:
             print('─' * 80)
             print(f"Total agents tracked: {len(leaderboard_profiles)}\n")
+
+    # ============================================================================
+    # Autonomous Search Visual Indicators
+    # ============================================================================
+
+    @staticmethod
+    def print_search_triggered(query: str, trigger_type: str, agent_name: str):
+        """
+        Display blue search trigger indicator when autonomous search is detected.
+
+        Args:
+            query: The search query extracted from agent thinking/response
+            trigger_type: Type of trigger ('explicit_request', 'uncertainty', 'fact_check')
+            agent_name: Name of agent that triggered the search
+        """
+        # Truncate query if too long
+        display_query = query if len(query) <= 50 else query[:47] + "..."
+
+        # Map trigger types to user-friendly labels
+        trigger_labels = {
+            'explicit_request': 'Explicit Request',
+            'uncertainty': 'Uncertainty Detection',
+            'fact_check': 'Fact Verification'
+        }
+        trigger_label = trigger_labels.get(trigger_type, trigger_type.title())
+
+        if COLORS_AVAILABLE:
+            print(f"\n{Fore.BLUE}{Style.BRIGHT}╔{'═' * 58}╗{Style.RESET_ALL}")
+            print(f"{Fore.BLUE}{Style.BRIGHT}║ 🔍 SEARCH TRIGGERED{' ' * 37}║{Style.RESET_ALL}")
+            print(f"{Fore.BLUE}{Style.BRIGHT}╠{'═' * 58}╣{Style.RESET_ALL}")
+            print(f"{Fore.BLUE}║{Style.RESET_ALL} Query: {Fore.CYAN}{display_query}{Style.RESET_ALL}{' ' * (51 - len(display_query))}{Fore.BLUE}║{Style.RESET_ALL}")
+            print(f"{Fore.BLUE}║{Style.RESET_ALL} Trigger: {Fore.CYAN}{trigger_label}{Style.RESET_ALL}{' ' * (49 - len(trigger_label))}{Fore.BLUE}║{Style.RESET_ALL}")
+            print(f"{Fore.BLUE}║{Style.RESET_ALL} Agent: {Fore.CYAN}{agent_name}{Style.RESET_ALL}{' ' * (51 - len(agent_name))}{Fore.BLUE}║{Style.RESET_ALL}")
+            print(f"{Fore.BLUE}{Style.BRIGHT}║ Searching...{' ' * 45}║{Style.RESET_ALL}")
+            print(f"{Fore.BLUE}{Style.BRIGHT}╚{'═' * 58}╝{Style.RESET_ALL}\n")
+        else:
+            print(f"\n╔{'═' * 58}╗")
+            print(f"║ 🔍 SEARCH TRIGGERED{' ' * 37}║")
+            print(f"╠{'═' * 58}╣")
+            print(f"║ Query: {display_query}{' ' * (51 - len(display_query))}║")
+            print(f"║ Trigger: {trigger_label}{' ' * (49 - len(trigger_label))}║")
+            print(f"║ Agent: {agent_name}{' ' * (51 - len(agent_name))}║")
+            print(f"║ Searching...{' ' * 45}║")
+            print(f"╚{'═' * 58}╝\n")
+
+    @staticmethod
+    def print_sources_found(count: int, sources: list):
+        """
+        Display green sources found indicator after search completes.
+
+        Args:
+            count: Number of sources found
+            sources: List of source dicts with 'title', 'url', 'publisher' keys
+        """
+        if count == 0:
+            if COLORS_AVAILABLE:
+                print(f"{Fore.YELLOW}⚠️  No sources found{Style.RESET_ALL}\n")
+            else:
+                print(f"⚠️  No sources found\n")
+            return
+
+        # Singular/plural handling
+        sources_text = "source" if count == 1 else "sources"
+
+        if COLORS_AVAILABLE:
+            print(f"{Fore.GREEN}{Style.BRIGHT}┌{'─' * 58}┐{Style.RESET_ALL}")
+            print(f"{Fore.GREEN}{Style.BRIGHT}│ ✅ Found {count} {sources_text}{' ' * (48 - len(f'Found {count} {sources_text}'))}│{Style.RESET_ALL}")
+            print(f"{Fore.GREEN}├{'─' * 58}┤{Style.RESET_ALL}")
+
+            # Display up to 3 sources
+            for i, source in enumerate(sources[:3]):
+                title = source.get('title', 'Unknown')
+                publisher = source.get('publisher', '')
+
+                # Truncate title if too long
+                max_title_len = 40
+                if len(title) > max_title_len:
+                    title = title[:max_title_len - 3] + "..."
+
+                # Build source line
+                if publisher and publisher != 'Unknown':
+                    source_line = f"• {title} ({publisher})"
+                else:
+                    source_line = f"• {title}"
+
+                # Truncate entire line if needed
+                if len(source_line) > 56:
+                    source_line = source_line[:53] + "..."
+
+                padding = 56 - len(source_line)
+                print(f"{Fore.GREEN}│{Style.RESET_ALL} {source_line}{' ' * padding} {Fore.GREEN}│{Style.RESET_ALL}")
+
+            # Show "and N more" if there are additional sources
+            if len(sources) > 3:
+                more_count = len(sources) - 3
+                more_text = f"• ...and {more_count} more"
+                padding = 56 - len(more_text)
+                print(f"{Fore.GREEN}│{Style.RESET_ALL} {Fore.CYAN}{more_text}{Style.RESET_ALL}{' ' * padding} {Fore.GREEN}│{Style.RESET_ALL}")
+
+            print(f"{Fore.GREEN}{Style.BRIGHT}└{'─' * 58}┘{Style.RESET_ALL}\n")
+
+        else:
+            print(f"┌{'─' * 58}┐")
+            print(f"│ ✅ Found {count} {sources_text}{' ' * (48 - len(f'Found {count} {sources_text}'))}│")
+            print(f"├{'─' * 58}┤")
+
+            for i, source in enumerate(sources[:3]):
+                title = source.get('title', 'Unknown')
+                publisher = source.get('publisher', '')
+
+                max_title_len = 40
+                if len(title) > max_title_len:
+                    title = title[:max_title_len - 3] + "..."
+
+                if publisher and publisher != 'Unknown':
+                    source_line = f"• {title} ({publisher})"
+                else:
+                    source_line = f"• {title}"
+
+                if len(source_line) > 56:
+                    source_line = source_line[:53] + "..."
+
+                padding = 56 - len(source_line)
+                print(f"│ {source_line}{' ' * padding} │")
+
+            if len(sources) > 3:
+                more_count = len(sources) - 3
+                more_text = f"• ...and {more_count} more"
+                padding = 56 - len(more_text)
+                print(f"│ {more_text}{' ' * padding} │")
+
+            print(f"└{'─' * 58}┘\n")

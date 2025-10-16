@@ -19,6 +19,7 @@ import argparse
 import sys
 import time
 import yaml
+import asyncio
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -26,6 +27,7 @@ from conversation_manager import ConversationHistory, Message, MessageRole
 from agent_runner import AgentRunner
 from display_formatter import DisplayFormatter
 from cost_calculator import CostCalculator
+from search_coordinator import SearchCoordinator
 
 
 class ConversationCoordinator:
@@ -37,6 +39,18 @@ class ConversationCoordinator:
         self.display = DisplayFormatter(self.config)
         self.agent_runner = AgentRunner(self.config)
         self.history: Optional[ConversationHistory] = None
+
+        # Initialize search coordinator if search is enabled in config
+        search_config = self.config.get('search', {})
+        if search_config.get('enabled', False):
+            try:
+                self.search_coordinator = SearchCoordinator(self.config)
+                print("✅ Autonomous search enabled")
+            except Exception as e:
+                print(f"⚠️  Failed to initialize search coordinator: {e}")
+                self.search_coordinator = None
+        else:
+            self.search_coordinator = None
 
         # Extract configuration
         self.conversation_config = self.config.get('conversation', {})
@@ -230,13 +244,62 @@ class ConversationCoordinator:
                 # Use response for next turn
                 response = response_text
 
+                # Check for autonomous search triggers
+                search_results_text = ""
+                if self.search_coordinator:
+                    try:
+                        # Check if search should be triggered
+                        should_search, trigger_type, query = self.search_coordinator.should_search(
+                            response=response_text,
+                            thinking=thinking_text,
+                            turn_number=turn,
+                            agent_name=agent_name
+                        )
+
+                        if should_search:
+                            # Display blue search trigger indicator
+                            DisplayFormatter.print_search_triggered(query, trigger_type, agent_name)
+
+                            # Execute search (async)
+                            search_ctx = asyncio.run(
+                                self.search_coordinator.execute_search(
+                                    query=query,
+                                    agent_name=agent_name,
+                                    turn_number=turn,
+                                    trigger_type=trigger_type
+                                )
+                            )
+
+                            if search_ctx:
+                                # Display green sources found indicator
+                                DisplayFormatter.print_sources_found(
+                                    count=len(search_ctx.extracted_content),
+                                    sources=[
+                                        {
+                                            'title': content.title,
+                                            'url': content.url,
+                                            'publisher': content.site
+                                        }
+                                        for content in search_ctx.extracted_content
+                                    ]
+                                )
+
+                                # Format search results for injection into next turn
+                                search_results_text = self.search_coordinator.format_search_for_context(search_ctx)
+
+                    except Exception as e:
+                        print(f"⚠️  Search error: {e}")
+
                 # Check for checkpoint
                 if exchange.message.is_checkpoint or len(self.history.checkpoints) > 0:
                     if self.history.checkpoints and self.history.checkpoints[-1].timestamp == exchange.timestamp:
                         self.display.print_checkpoint(turn)
 
-                # Prepare message for next agent
-                current_message = response
+                # Prepare message for next agent (with search results if available)
+                if search_results_text:
+                    current_message = response + "\n\n" + search_results_text
+                else:
+                    current_message = response
 
                 # Delay before next turn (for readability)
                 if turn < self.max_turns - 1:

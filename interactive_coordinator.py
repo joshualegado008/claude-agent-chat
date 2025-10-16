@@ -6,6 +6,7 @@ import os
 import sys
 import json
 import signal
+import asyncio
 from datetime import datetime
 from typing import Optional, Dict
 
@@ -16,6 +17,7 @@ from conversation_manager_persistent import PersistentConversationManager
 from metadata_extractor import MetadataExtractor
 from terminal_dashboard import TerminalDashboard
 from settings_manager import get_settings
+from search_coordinator import SearchCoordinator
 
 
 class InteractiveCoordinator:
@@ -24,10 +26,32 @@ class InteractiveCoordinator:
     def __init__(self, db: DatabaseManager):
         self.db = db
 
+        # Load config for search coordinator
+        import yaml
+        from pathlib import Path
+        config_path = Path('config.yaml')
+        if config_path.exists():
+            with open(config_path, 'r') as f:
+                self.config = yaml.safe_load(f)
+        else:
+            self.config = {}
+
         # Initialize metadata extractor with key from settings
         settings = get_settings()
         openai_key = settings.get_openai_api_key()
         self.metadata_extractor = MetadataExtractor(api_key=openai_key)
+
+        # Initialize search coordinator if search is enabled in config
+        search_config = self.config.get('search', {})
+        if search_config.get('enabled', False):
+            try:
+                self.search_coordinator = SearchCoordinator(self.config)
+                print("✅ Autonomous search enabled")
+            except Exception as e:
+                print(f"⚠️  Failed to initialize search coordinator: {e}")
+                self.search_coordinator = None
+        else:
+            self.search_coordinator = None
 
         self.dashboard = TerminalDashboard()
         self.conversation_paused = False
@@ -214,6 +238,52 @@ class InteractiveCoordinator:
                         tokens_used=tokens
                     )
 
+                    # Check for autonomous search triggers
+                    search_results_text = ""
+                    if self.search_coordinator:
+                        try:
+                            # Check if search should be triggered
+                            should_search, trigger_type, query = self.search_coordinator.should_search(
+                                response=response_text,
+                                thinking=thinking_text,
+                                turn_number=turn,
+                                agent_name=current_agent.agent_name
+                            )
+
+                            if should_search:
+                                # Display blue search trigger indicator
+                                DisplayFormatter.print_search_triggered(query, trigger_type, current_agent.agent_name)
+
+                                # Execute search (async)
+                                search_ctx = asyncio.run(
+                                    self.search_coordinator.execute_search(
+                                        query=query,
+                                        agent_name=current_agent.agent_name,
+                                        turn_number=turn,
+                                        trigger_type=trigger_type
+                                    )
+                                )
+
+                                if search_ctx:
+                                    # Display green sources found indicator
+                                    DisplayFormatter.print_sources_found(
+                                        count=len(search_ctx.extracted_content),
+                                        sources=[
+                                            {
+                                                'title': content.title,
+                                                'url': content.url,
+                                                'publisher': content.site
+                                            }
+                                            for content in search_ctx.extracted_content
+                                        ]
+                                    )
+
+                                    # Format search results for injection into next turn
+                                    search_results_text = self.search_coordinator.format_search_for_context(search_ctx)
+
+                        except Exception as e:
+                            print(f"⚠️  Search error: {e}")
+
                     # Extract and save metadata periodically
                     if turn - last_metadata_turn >= metadata_interval:
                         self._extract_and_save_metadata(
@@ -223,9 +293,12 @@ class InteractiveCoordinator:
                         )
                         last_metadata_turn = turn
 
-                    # Prepare next message
+                    # Prepare next message (with search results if available)
                     context = conv_manager.get_context_for_continuation(window_size=5)
-                    current_message = f"{context}\n\nPlease respond to continue the discussion."
+                    if search_results_text:
+                        current_message = f"{context}\n\n{search_results_text}\n\nPlease respond to continue the discussion."
+                    else:
+                        current_message = f"{context}\n\nPlease respond to continue the discussion."
 
                     # Switch agents
                     current_agent_idx = 1 - current_agent_idx
