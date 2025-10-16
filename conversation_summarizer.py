@@ -180,7 +180,22 @@ class ConversationSummarizer:
         for idx, ex in enumerate(exchanges):
             agent_name = ex.get('agent_name', 'Unknown')
             content = ex.get('response_content', '')
+            sources = ex.get('sources', [])
+
             exchange_text += f"\n\n--- Turn {idx} - {agent_name} ---\n{content}"
+
+            # Include sources/citations if present
+            if sources and len(sources) > 0:
+                exchange_text += "\n\n[SOURCES CITED:]"
+                for source in sources:
+                    title = source.get('title', 'Unknown')
+                    url = source.get('url', '')
+                    publisher = source.get('publisher', '')
+                    exchange_text += f"\n- {title}"
+                    if publisher:
+                        exchange_text += f" ({publisher})"
+                    if url:
+                        exchange_text += f" - {url}"
 
         context = f"""Analyze this complete expert conversation and generate a comprehensive intelligence report.
 
@@ -244,6 +259,7 @@ Your output MUST be valid JSON with this EXACT structure:
       "key_concepts": ["concept1", "concept2"],
       "technical_terms_introduced": ["term1", "term2"],
       "novel_insights": ["insight1"],
+      "sources_cited": ["Title of source 1", "Title of source 2"],
       "turn_count": 10,
       "engagement_level": "high|medium|low",
       "communication_style": "Brief description of their approach"
@@ -284,8 +300,9 @@ IMPORTANT GUIDELINES:
 3. **Vocabulary Highlights**: Choose 3-5 interesting words that expand vocabulary - focus on sophisticated or uncommon words
 4. **Pronunciation**: Provide phonetic guides for difficult words (e.g., "pseudopseudohypoparathyroidism" → "SOO-doh-SOO-doh-HY-poh-pa-ra-THY-royd-izm")
 5. **Agent Contributions**: Be specific about what each agent uniquely contributed
-6. **Collaboration**: Identify the friendliest/most supportive agent based on their language and interaction style
-7. **Learning Outcomes**: Focus on what makes this conversation educational or valuable
+6. **Sources Cited**: Extract the titles of all sources/citations used by each agent (look for [SOURCES CITED:] sections in turns)
+7. **Collaboration**: Identify the friendliest/most supportive agent based on their language and interaction style
+8. **Learning Outcomes**: Focus on what makes this conversation educational or valuable
 
 Return ONLY valid JSON, no other text."""
 
@@ -314,6 +331,7 @@ Return ONLY valid JSON, no other text."""
                     "key_concepts": [],
                     "technical_terms_introduced": [],
                     "novel_insights": [],
+                    "sources_cited": [],
                     "turn_count": 0,
                     "engagement_level": "unknown",
                     "communication_style": "Unknown"

@@ -39,6 +39,7 @@ class NewConversationRequest(BaseModel):
     tags: Optional[List[str]] = None
     generate_prompt: bool = True  # Auto-generate if not provided
     agent_ids: Optional[List[str]] = None  # For dynamic agent selection
+    agent_selection_metadata: Optional[Dict] = None  # Metadata from agent selection (refined topic, expertise)
 
 class ContinueConversationRequest(BaseModel):
     continuation_prompt: Optional[str] = None
@@ -226,6 +227,7 @@ async def get_conversation(conversation_id: str):
             "id": str(conversation.get("id")),
             "title": conversation.get("title"),
             "initial_prompt": conversation.get("initial_prompt"),
+            "prompt_metadata": conversation.get("prompt_metadata"),  # Include prompt evolution metadata
             # Legacy fields for backward compatibility
             "agent_a_id": agent_a_id,
             "agent_a_name": conversation.get("agent_a_name"),
@@ -276,6 +278,12 @@ async def create_conversation(request: NewConversationRequest):
         # Get metadata extractor for AI-powered title/prompt generation
         metadata_extractor = bridge.get_metadata_extractor()
 
+        # Build prompt_metadata to track the evolution
+        prompt_metadata = {
+            "original_user_input": request.title,
+            "timestamps": {}
+        }
+
         if request.generate_prompt:
             if not metadata_extractor:
                 raise HTTPException(
@@ -285,18 +293,24 @@ async def create_conversation(request: NewConversationRequest):
 
             # Generate concise title from user's input (may be long)
             concise_title = metadata_extractor.generate_concise_title(request.title)
+            prompt_metadata["generated_title"] = concise_title
+            prompt_metadata["timestamps"]["title_generated_at"] = datetime.now().isoformat()
 
             # Generate initial prompt if not provided
             if not initial_prompt:
                 initial_prompt = metadata_extractor.generate_initial_prompt(request.title)
+                prompt_metadata["generated_prompt"] = initial_prompt
+                prompt_metadata["timestamps"]["prompt_generated_at"] = datetime.now().isoformat()
 
             # Extract tags if not provided
             if not tags:
                 tags = metadata_extractor.extract_tags_from_title(request.title)
+                prompt_metadata["generated_tags"] = tags
         else:
             # If not auto-generating, still try to create concise title for long inputs
             if metadata_extractor and len(request.title) > 100:
                 concise_title = metadata_extractor.generate_concise_title(request.title)
+                prompt_metadata["generated_title"] = concise_title
 
         if not initial_prompt:
             raise HTTPException(status_code=400, detail="initial_prompt is required")
@@ -333,12 +347,19 @@ async def create_conversation(request: NewConversationRequest):
                     'qualification': qualification
                 })
 
+            # Add agent selection metadata if provided (refined topic, expertise analysis)
+            if request.agent_selection_metadata:
+                prompt_metadata["refined_topic"] = request.agent_selection_metadata.get("refined_topic")
+                prompt_metadata["expertise_requirements"] = request.agent_selection_metadata.get("expertise_requirements")
+                prompt_metadata["timestamps"]["topic_refined_at"] = datetime.now().isoformat()
+
             # Create conversation with agents array
             conversation_id = conv_manager.start_new_conversation(
                 title=concise_title,  # Use concise title for UI
                 initial_prompt=initial_prompt,  # Full prompt for conversation
                 tags=tags,
-                agents=agents  # Pass all agents as array
+                agents=agents,  # Pass all agents as array
+                prompt_metadata=prompt_metadata  # Pass prompt evolution metadata
             )
         else:
             # Use static agents from config.yaml (legacy 2-agent format)
@@ -364,7 +385,8 @@ async def create_conversation(request: NewConversationRequest):
                 agent_a_name=agent_a_name,
                 agent_b_id=agent_b_id,
                 agent_b_name=agent_b_name,
-                tags=tags
+                tags=tags,
+                prompt_metadata=prompt_metadata  # Pass prompt evolution metadata
             )
 
         return {

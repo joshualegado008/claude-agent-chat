@@ -30,7 +30,8 @@ class PersistentConversationManager:
         agent_b_id: str = None,
         agent_b_name: str = None,
         tags: List[str] = None,
-        agents: List[Dict] = None  # New: Array of {id, name, qualification}
+        agents: List[Dict] = None,  # New: Array of {id, name, qualification}
+        prompt_metadata: Dict = None  # New: Prompt evolution metadata
     ) -> str:
         """
         Start a new conversation and create database record.
@@ -38,6 +39,15 @@ class PersistentConversationManager:
         Supports both legacy 2-agent format and new multi-agent format:
         - Legacy: Pass agent_a_id, agent_a_name, agent_b_id, agent_b_name
         - Multi-agent: Pass agents list with {id, name, qualification} dicts
+
+        Args:
+            prompt_metadata: Optional prompt evolution metadata containing:
+                - original_user_input: What the user originally typed
+                - generated_title: AI-generated concise title
+                - generated_prompt: AI-enhanced prompt
+                - refined_topic: Topic refined for agent selection
+                - expertise_analysis: Expertise requirements analysis
+                - timestamps: Generation timestamps
 
         Returns:
             conversation_id
@@ -50,7 +60,8 @@ class PersistentConversationManager:
             agent_b_id=agent_b_id,
             agent_b_name=agent_b_name,
             tags=tags,
-            agents=agents
+            agents=agents,
+            prompt_metadata=prompt_metadata
         )
 
         self.exchanges = []
@@ -139,9 +150,25 @@ class PersistentConversationManager:
         response_content: str,
         agent_qualification: Optional[str] = None,
         thinking_content: Optional[str] = None,
-        tokens_used: int = 0
+        tokens_used: int = 0,
+        sources: Optional[List[Dict]] = None,  # Citations/sources used
+        search_query: Optional[str] = None,  # New: Search query if autonomous search triggered
+        search_trigger_type: Optional[str] = None  # New: Type of search trigger
     ):
-        """Add an exchange to the conversation and persist to database."""
+        """
+        Add an exchange to the conversation and persist to database.
+
+        Args:
+            agent_name: Name of the agent
+            response_content: Agent's response text
+            agent_qualification: Agent's qualification/expertise
+            thinking_content: Extended thinking content (optional)
+            tokens_used: Number of tokens used
+            sources: List of citations/sources used in this exchange
+                     Each source: {source_id, title, url, publisher, accessed_date, excerpt}
+            search_query: Search query if autonomous search was triggered during this turn
+            search_trigger_type: Type of search trigger (e.g., fact_check, curiosity, verification)
+        """
 
         if not self.conversation_id:
             raise ValueError("No active conversation. Call start_new_conversation() first.")
@@ -153,6 +180,9 @@ class PersistentConversationManager:
             'thinking_content': thinking_content,
             'response_content': response_content,
             'tokens_used': tokens_used,
+            'sources': sources or [],
+            'search_query': search_query,
+            'search_trigger_type': search_trigger_type,
             'created_at': datetime.now().isoformat()
         }
 
@@ -166,7 +196,10 @@ class PersistentConversationManager:
             agent_qualification=agent_qualification,
             thinking_content=thinking_content,
             response_content=response_content,
-            tokens_used=tokens_used
+            tokens_used=tokens_used,
+            sources=sources,
+            search_query=search_query,
+            search_trigger_type=search_trigger_type
         )
 
         self.current_turn += 1
@@ -209,7 +242,8 @@ class PersistentConversationManager:
             agent_qualification=None,
             thinking_content=None,
             response_content=content,
-            tokens_used=0
+            tokens_used=0,
+            sources=None  # User injections don't have sources
         )
 
         # Increment turn counter so next agent gets a unique turn number

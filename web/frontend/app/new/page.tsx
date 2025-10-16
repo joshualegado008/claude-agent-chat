@@ -173,6 +173,11 @@ export default function NewConversationPage() {
         conversationData.agent_ids = selectedAgents.map(agent => agent.agent_id);
       }
 
+      // Include agent selection metadata (refined topic, expertise requirements)
+      if (agentMetadata) {
+        conversationData.agent_selection_metadata = agentMetadata;
+      }
+
       const result = await createConversationMutation.mutateAsync(conversationData);
 
       // Navigate to live conversation page
@@ -194,7 +199,7 @@ export default function NewConversationPage() {
             Start a New Conversation
           </h1>
           <p className="text-slate-400">
-            Watch two AI agents discuss any topic in real-time
+            Watch expert AI agents discuss any topic in real-time
           </p>
         </div>
 

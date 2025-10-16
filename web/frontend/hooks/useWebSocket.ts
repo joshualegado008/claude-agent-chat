@@ -9,6 +9,7 @@ import type {
   Exchange,
   TokenStats,
   ConversationMetadata,
+  Source,
 } from '@/types';
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || process.env.WS_URL || 'ws://localhost:8000';
@@ -32,13 +33,14 @@ export interface ConversationState {
   currentResponse: string;
   currentStats: TokenStats | null;
   currentToolUses: string[]; // Tool uses for current turn
+  currentSources: Source[]; // Sources cited in current turn
 
   // Search state
   searchInProgress: boolean;
   searchQuery: string | null;
   searchAgentName: string | null;
   searchTriggerType: string | null;
-  searchResults: { sources: number; citations: string[] } | null;
+  searchResults: { sources_count: number; citations: string[]; sources: Source[] } | null;
 
   // Metadata
   metadata: ConversationMetadata | null;
@@ -78,6 +80,7 @@ export function useWebSocket(conversationId: string): UseWebSocketResult {
     currentResponse: '',
     currentStats: null,
     currentToolUses: [],
+    currentSources: [],
     searchInProgress: false,
     searchQuery: null,
     searchAgentName: null,
@@ -144,6 +147,7 @@ export function useWebSocket(conversationId: string): UseWebSocketResult {
             currentResponse: '',
             currentStats: null,
             currentToolUses: [],
+            currentSources: [],
           }));
           break;
 
@@ -170,6 +174,7 @@ export function useWebSocket(conversationId: string): UseWebSocketResult {
             setState(prev => ({
               ...prev,
               currentStats: message.stats || null,
+              currentSources: message.sources || [],  // Capture sources from fetch_url
               currentAgentName: null,        // Clear current agent after completion
               currentThinking: '',            // Clear thinking content
               currentResponse: '',            // Clear response content
@@ -180,6 +185,9 @@ export function useWebSocket(conversationId: string): UseWebSocketResult {
                   agent_name: message.agent_name || '',
                   thinking_content: message.thinking || null,
                   response_content: message.response || '',
+                  sources: message.sources || [],  // Include sources in exchange
+                  search_query: message.search_query || undefined,  // Capture search metadata
+                  search_trigger_type: message.search_trigger_type || undefined,  // Capture search trigger
                   tokens_used: message.stats?.total_tokens || 0,
                   created_at: new Date().toISOString(),
                 },
@@ -252,9 +260,12 @@ export function useWebSocket(conversationId: string): UseWebSocketResult {
             ...prev,
             searchInProgress: false,
             searchResults: {
-              sources: message.sources_count || 0,
+              sources_count: message.sources_count || 0,
               citations: message.citations || [],
+              sources: message.sources || [],  // Full source objects
             },
+            // Add search sources to current sources
+            currentSources: [...prev.currentSources, ...(message.sources || [])],
           }));
           break;
 

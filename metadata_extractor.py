@@ -378,22 +378,41 @@ Output: "Examine the principles of quantum computing, current technological chal
         """
         system_prompt = """Analyze this topic and identify expertise requirements for a multi-agent discussion.
 
+Determine how many agents (2-5+) are needed based on the topic's complexity and interdisciplinary nature:
+- Simple, single-discipline topics: 2 agents
+- Cross-disciplinary or moderately complex topics: 3 agents
+- Highly complex, multi-faceted topics: 4-5+ agents
+
+Consider including specialized agent types when relevant:
+- **Code Writer/Engineer** - For technical topics needing code examples, pseudocode, or implementation details
+- **Data Analyst/Statistician** - For topics involving research, data, or quantitative analysis
+- **Visual Explainer** - For topics that benefit from diagrams, models, or visual thinking
+- **Historian/Context Provider** - For topics needing historical background or evolution
+- **Ethicist/Philosopher** - For topics with ethical, moral, or philosophical dimensions
+- **Policy/Legal Expert** - For topics involving regulations, governance, or legal frameworks
+
 Return a JSON object with this structure:
 {
   "refined_topic": "Clear 1-2 sentence discussion question",
-  "expertise_needed": ["Specific Expertise 1", "Specific Expertise 2", "Specific Expertise 3"],
-  "suggested_domains": ["DOMAIN1", "DOMAIN2"]
+  "expertise_needed": ["Specific Expertise 1", "Specific Expertise 2", ...],
+  "suggested_domains": ["DOMAIN1", "DOMAIN2"],
+  "complexity_reasoning": "Brief explanation of why this number of agents"
 }
 
-For expertise_needed, provide 2-3 specific expert roles like:
-- "Ancient Near Eastern History (Canaanite period)"
-- "Ophthalmology (retinal diseases)"
-- "Quantum Computing"
+Examples:
+Topic: "meditation benefits"
+→ 2 agents: Neuroscientist, Wellness Expert
+
+Topic: "implementing OAuth 2.0 authentication"
+→ 3 agents: Security Engineer, Backend Developer, Code Implementation Specialist
+
+Topic: "climate change impact on global food systems"
+→ 5 agents: Climate Scientist, Agricultural Expert, Economist, Policy Analyst, Data Visualization Expert
 
 For suggested_domains, choose from:
 SCIENCE, MEDICINE, HUMANITIES, TECHNOLOGY, BUSINESS, LAW, ARTS
 
-Be specific and thoughtful."""
+Be specific and thoughtful about agent count and specializations."""
 
         try:
             response = self.client.chat.completions.create(

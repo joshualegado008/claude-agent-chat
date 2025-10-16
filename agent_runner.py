@@ -312,6 +312,7 @@ class AgentRunner:
             total_thinking_tokens = 0
             tool_use_count = 0
             max_tool_uses = web_config.get('max_urls_per_turn', 3)
+            fetched_sources = []  # Track URLs fetched for citations
 
             while True:
                 thinking_text = ""
@@ -410,10 +411,40 @@ class AgentRunner:
                     tool_id = tool_use.id
 
                     # Notify about tool use
-                    yield ('tool_use', f"Fetching: {tool_input.get('url', 'unknown')}", {})
+                    url = tool_input.get('url', 'unknown')
+                    yield ('tool_use', f"Fetching: {url}", {})
 
                     # Execute the tool
                     tool_result = web_tools.execute_tool(tool_name, tool_input, web_config)
+
+                    # Track fetched URL as a source (for citations)
+                    if tool_name == 'fetch_url' and url != 'unknown':
+                        # Extract title from tool result if available
+                        # The tool result format is: "=== Content from {url} ===\n\nTitle: {title}\n..."
+                        title = url  # Default to URL
+                        excerpt = tool_result[:200]  # First 200 chars as excerpt
+
+                        # Try to extract title from "Title: ..." pattern
+                        if "Title: " in tool_result:
+                            try:
+                                title_start = tool_result.index("Title: ") + 7
+                                title_end = tool_result.index("\n", title_start)
+                                title = tool_result[title_start:title_end].strip()
+                            except:
+                                pass  # Keep default title if extraction fails
+
+                        # Create source/citation object
+                        import hashlib
+                        from datetime import datetime
+                        source = {
+                            'source_id': hashlib.md5(url.encode()).hexdigest()[:12],
+                            'title': title,
+                            'url': url,
+                            'publisher': url.split('/')[2] if '/' in url else 'Unknown',  # Extract domain
+                            'accessed_date': datetime.now().strftime('%Y-%m-%d'),
+                            'excerpt': excerpt.replace('=== Content from', '').replace('===', '').strip()[:200]
+                        }
+                        fetched_sources.append(source)
 
                     tool_results.append({
                         "type": "tool_result",
@@ -452,7 +483,9 @@ class AgentRunner:
                 'temperature': temperature,
                 'max_tokens': max_tokens,
                 # Add tool usage stats
-                'tool_uses': tool_use_count
+                'tool_uses': tool_use_count,
+                # Add fetched sources for citations
+                'sources': fetched_sources
             }
             yield ('complete', '', token_info)
 

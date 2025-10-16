@@ -252,6 +252,17 @@ export function ConversationSummaryDisplay({ summary, conversationTitle, onClose
                           </ul>
                         </div>
                       )}
+
+                      {agent.sources_cited && agent.sources_cited.length > 0 && (
+                        <div className="md:col-span-2">
+                          <p className="font-medium text-cyan-400 mb-1">Sources Cited:</p>
+                          <ul className="list-disc list-inside text-slate-300 space-y-1">
+                            {agent.sources_cited.map((source, i) => (
+                              <li key={i}>{source}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}

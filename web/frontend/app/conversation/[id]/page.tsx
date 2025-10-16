@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, MessageSquare, Play, Trash2, FileText } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Play, Trash2, FileText, ChevronDown, ChevronUp } from 'lucide-react';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useConversation, useDeleteConversation } from '@/hooks/useConversations';
 import { AgentMessage, TypingIndicator } from '@/components/AgentMessage';
@@ -13,6 +13,7 @@ import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 import { ConversationSummaryDisplay } from '@/components/ConversationSummary';
 import { ToolUseList } from '@/components/ToolUseMessage';
 import { LoadingScreen } from '@/components/Loading';
+import { PromptEvolutionPanel } from '@/components/PromptEvolutionPanel';
 import { formatNumber, formatCost } from '@/lib/utils';
 import { calculateHistoricalStats } from '@/lib/costCalculator';
 import type { ConversationSummary } from '@/types';
@@ -45,6 +46,7 @@ export default function ConversationPage() {
   const [showSummary, setShowSummary] = useState(false);
   const [summaryData, setSummaryData] = useState<ConversationSummary | null>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+  const [isStatsCollapsed, setIsStatsCollapsed] = useState(true); // Start collapsed to save space
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Calculate historical stats from exchanges (MUST be before early returns)
@@ -255,6 +257,11 @@ export default function ConversationPage() {
       {/* Main Content */}
       <div className="container mx-auto px-4 py-6 max-w-5xl">
         <div className="space-y-6">
+          {/* Prompt Evolution Panel - Show if prompt_metadata exists */}
+          {conversationData.prompt_metadata && (
+            <PromptEvolutionPanel metadata={conversationData.prompt_metadata} />
+          )}
+
           {/* Controls - Only show if live or complete */}
           {isLive && (
             <ConversationControls
@@ -309,12 +316,62 @@ export default function ConversationPage() {
             {/* Previous Exchanges */}
             {exchanges.map((exchange, idx) => (
               <div key={idx} className="mb-6">
+                {/* Search Indicator for this exchange */}
+                {exchange.search_query && (
+                  <div className="mb-3 text-center">
+                    <div className="inline-flex flex-col items-center space-y-2 px-4 py-3 bg-blue-900/30 border border-blue-700 rounded-lg">
+                      <span className="text-blue-300 text-sm font-medium">
+                        🔍 Search triggered: &quot;{exchange.search_query}&quot;
+                      </span>
+                      {exchange.search_trigger_type && (
+                        <span className="text-blue-400 text-xs">
+                          Trigger: {exchange.search_trigger_type}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Agent Message */}
                 <AgentMessage
                   agentName={exchange.agent_name}
                   content={exchange.response_content}
                   thinking={exchange.thinking_content}
+                  sources={exchange.sources}
                   showThinking={true}
                 />
+
+                {/* Source Pills for this exchange */}
+                {exchange.sources && exchange.sources.length > 0 && (
+                  <div className="mt-3 text-center">
+                    <div className="inline-flex flex-col items-center space-y-2 px-4 py-3 bg-green-900/30 border border-green-700 rounded-lg">
+                      <span className="text-green-400 text-sm font-medium">
+                        ✓ Found {exchange.sources.length} source{exchange.sources.length !== 1 ? 's' : ''}
+                      </span>
+                      <div className="flex flex-wrap gap-2 justify-center max-w-2xl">
+                        {exchange.sources.map((source, sourceIdx) => (
+                          <a
+                            key={sourceIdx}
+                            href={source.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="group inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-green-800/50 border border-green-600 hover:border-green-400 hover:bg-green-700/50 transition-all duration-200"
+                            title={source.excerpt || source.title}
+                          >
+                            <span className="text-green-200 group-hover:text-green-100 max-w-[200px] truncate">
+                              {source.title}
+                            </span>
+                            {source.publisher && (
+                              <span className="text-green-400/70">
+                                • {source.publisher}
+                              </span>
+                            )}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
 
@@ -333,6 +390,7 @@ export default function ConversationPage() {
                     agentName={state.currentAgentName}
                     content={state.currentResponse}
                     thinking={state.currentThinking}
+                    sources={state.currentSources}
                     isStreaming={true}
                     showThinking={true}
                   />
@@ -361,19 +419,36 @@ export default function ConversationPage() {
             )}
 
             {/* Search Results */}
-            {isLive && !state.searchInProgress && state.searchResults && state.searchResults.sources > 0 && (
+            {isLive && !state.searchInProgress && state.searchResults && state.searchResults.sources_count > 0 && (
               <div className="text-center py-2 mb-4">
-                <div className="inline-flex items-center space-x-2 px-4 py-2 bg-green-900/30 border border-green-700 rounded-lg">
-                  <span className="text-green-400 text-sm">
-                    ✓ Found {state.searchResults.sources} source{state.searchResults.sources !== 1 ? 's' : ''}
+                <div className="inline-flex flex-col items-center space-y-2 px-4 py-3 bg-green-900/30 border border-green-700 rounded-lg">
+                  <span className="text-green-400 text-sm font-medium">
+                    ✓ Found {state.searchResults.sources_count} source{state.searchResults.sources_count !== 1 ? 's' : ''}
                   </span>
+                  {state.searchResults.sources && state.searchResults.sources.length > 0 && (
+                    <div className="flex flex-wrap gap-2 justify-center max-w-2xl">
+                      {state.searchResults.sources.map((source, idx) => (
+                        <a
+                          key={idx}
+                          href={source.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="group inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-green-800/50 border border-green-600 hover:border-green-400 hover:bg-green-700/50 transition-all duration-200"
+                          title={source.excerpt || source.title}
+                        >
+                          <span className="text-green-200 group-hover:text-green-100 max-w-[200px] truncate">
+                            {source.title}
+                          </span>
+                          {source.publisher && (
+                            <span className="text-green-400/70">
+                              • {source.publisher}
+                            </span>
+                          )}
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                {state.searchResults.citations && state.searchResults.citations.length > 0 && (
-                  <p className="text-xs text-slate-400 mt-2">
-                    Citations: {state.searchResults.citations.slice(0, 3).join(', ')}
-                    {state.searchResults.citations.length > 3 && ` (+${state.searchResults.citations.length - 3} more)`}
-                  </p>
-                )}
               </div>
             )}
 
@@ -405,10 +480,22 @@ export default function ConversationPage() {
 
           {/* Live Stats Panel (during streaming) */}
           {showLiveStats && state.currentStats && (
-            <div className="bg-slate-800 rounded-xl shadow-lg p-6 border border-slate-700">
-              <h3 className="text-lg font-bold mb-4">📊 Turn Statistics</h3>
+            <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-700">
+              <button
+                onClick={() => setIsStatsCollapsed(!isStatsCollapsed)}
+                className="w-full flex items-center justify-between p-6 hover:bg-slate-750 transition-colors rounded-xl"
+              >
+                <h3 className="text-lg font-bold">📊 Turn Statistics</h3>
+                {isStatsCollapsed ? (
+                  <ChevronDown className="w-5 h-5 text-slate-400" />
+                ) : (
+                  <ChevronUp className="w-5 h-5 text-slate-400" />
+                )}
+              </button>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {!isStatsCollapsed && (
+                <div className="px-6 pb-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Token Breakdown */}
                 <div className="space-y-2">
                   <h4 className="font-medium text-sm text-slate-400">
@@ -485,15 +572,29 @@ export default function ConversationPage() {
                   </div>
                 </div>
               </div>
+                </div>
+              )}
             </div>
           )}
 
           {/* Historical Stats Panel (for completed conversations) */}
           {showHistoricalStats && historicalStats && (
-            <div className="bg-slate-800 rounded-xl shadow-lg p-6 border border-slate-700">
-              <h3 className="text-lg font-bold mb-4">📊 Conversation Statistics</h3>
+            <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-700">
+              <button
+                onClick={() => setIsStatsCollapsed(!isStatsCollapsed)}
+                className="w-full flex items-center justify-between p-6 hover:bg-slate-750 transition-colors rounded-xl"
+              >
+                <h3 className="text-lg font-bold">📊 Conversation Statistics</h3>
+                {isStatsCollapsed ? (
+                  <ChevronDown className="w-5 h-5 text-slate-400" />
+                ) : (
+                  <ChevronUp className="w-5 h-5 text-slate-400" />
+                )}
+              </button>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {!isStatsCollapsed && (
+                <div className="px-6 pb-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Overall Stats */}
                 <div className="space-y-2">
                   <h4 className="font-medium text-sm text-slate-400">
@@ -545,9 +646,11 @@ export default function ConversationPage() {
                 </div>
               </div>
 
-              <div className="mt-4 pt-4 border-t border-slate-700 text-xs text-slate-500">
-                Note: Costs calculated using current model configuration. Historical exchanges may have used different models.
-              </div>
+                  <div className="mt-4 pt-4 border-t border-slate-700 text-xs text-slate-500">
+                    Note: Costs calculated using current model configuration. Historical exchanges may have used different models.
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

@@ -275,6 +275,9 @@ class ConversationStreamHandler:
                 model_name = None
                 temperature = 1.0
                 max_tokens_setting = 0
+                fetched_sources = []  # Track sources from fetch_url tool
+                search_query = None  # Track search query if autonomous search triggered
+                search_trigger_type = None  # Track search trigger type
 
                 stream = current_agent.send_message_streaming(
                     context_messages=[],
@@ -338,6 +341,8 @@ class ConversationStreamHandler:
                         model_name = info.get('model_name')
                         temperature = info.get('temperature', 1.0)
                         max_tokens_setting = info.get('max_tokens', 0)
+                        # Capture sources from fetch_url tool
+                        fetched_sources = info.get('sources', [])
 
                     elif content_type == 'error':
                         await websocket.send_json({
@@ -381,13 +386,16 @@ class ConversationStreamHandler:
                     'projected_total_cost': projected_cost
                 }
 
-                # Send turn complete with stats
+                # Send turn complete with stats, sources, and search metadata
                 await websocket.send_json({
                     "type": "turn_complete",
                     "turn": turn,
                     "agent_name": current_agent.agent_name,
                     "response": response_text,
                     "thinking": thinking_text,
+                    "sources": fetched_sources,  # Sources from fetch_url tool
+                    "search_query": search_query,  # Search query if search was triggered
+                    "search_trigger_type": search_trigger_type,  # Search trigger type
                     "stats": {
                         "input_tokens": input_tokens,
                         "output_tokens": output_tokens,
@@ -403,18 +411,9 @@ class ConversationStreamHandler:
                     }
                 })
 
-                # Save to database
-                self.conv_manager.add_exchange(
-                    agent_name=current_agent.agent_name,
-                    agent_qualification=self.agent_qualifications.get(current_agent.agent_name),
-                    response_content=response_text,
-                    thinking_content=thinking_text if thinking_text else None,
-                    tokens_used=tokens
-                )
-
-                # Save periodic snapshots
-                if turn % 5 == 0:
-                    self.conv_manager.save_snapshot()
+                # Collect all sources (from fetch_url and/or search)
+                all_sources = fetched_sources.copy() if fetched_sources else []
+                search_sources = []  # Will be populated if search is triggered
 
                 # Check for autonomous search triggers
                 search_results_text = ""
@@ -432,6 +431,10 @@ class ConversationStreamHandler:
                         )
 
                         if should_search:
+                            # Store search metadata for persistence
+                            search_query = query
+                            search_trigger_type = trigger_type
+
                             # Notify frontend that search is starting
                             await websocket.send_json({
                                 "type": "search_triggered",
@@ -452,6 +455,23 @@ class ConversationStreamHandler:
                             if search_ctx:
                                 # Format results for injection
                                 search_results_text = search_coordinator.format_search_for_context(search_ctx)
+
+                                # Extract sources from search for citations
+                                for content in search_ctx.extracted_content:
+                                    import hashlib
+                                    from datetime import datetime
+                                    source = {
+                                        'source_id': hashlib.md5(content.url.encode()).hexdigest()[:12],
+                                        'title': content.title,
+                                        'url': content.url,
+                                        'publisher': content.site,
+                                        'accessed_date': datetime.now().strftime('%Y-%m-%d'),
+                                        'excerpt': content.excerpt[:200] if content.excerpt else ''
+                                    }
+                                    search_sources.append(source)
+
+                                # Add search sources to combined sources list
+                                all_sources.extend(search_sources)
 
                                 # Send search results to frontend
                                 await websocket.send_json({
@@ -485,6 +505,22 @@ class ConversationStreamHandler:
                             "turn": turn,
                             "message": str(e)
                         })
+
+                # Save to database with combined sources and search metadata
+                self.conv_manager.add_exchange(
+                    agent_name=current_agent.agent_name,
+                    agent_qualification=self.agent_qualifications.get(current_agent.agent_name),
+                    response_content=response_text,
+                    thinking_content=thinking_text if thinking_text else None,
+                    tokens_used=tokens,
+                    sources=all_sources if all_sources else None,
+                    search_query=search_query,
+                    search_trigger_type=search_trigger_type
+                )
+
+                # Save periodic snapshots
+                if turn % 5 == 0:
+                    self.conv_manager.save_snapshot()
 
                 # Prepare message for next agent
                 context = self.conv_manager.get_context_for_continuation(window_size=5)
@@ -726,14 +762,14 @@ Please respond to continue the discussion."""
                 generation_model='gpt-4o-mini',
                 input_tokens=result['summary_data']['generation_metadata']['input_tokens'],
                 output_tokens=result['summary_data']['generation_metadata']['output_tokens'],
-                total_tokens=result['tokens_used'],
-                generation_cost=result['generation_cost'],
+                total_tokens=result['total_tokens'],
+                generation_cost=result['cost'],
                 generation_time_ms=result['generation_time_ms']
             )
 
             print(f"   ✅ Summary generated successfully!")
-            print(f"   Tokens: {result['tokens_used']}")
-            print(f"   Cost: ${result['generation_cost']:.4f}")
+            print(f"   Tokens: {result['total_tokens']}")
+            print(f"   Cost: ${result['cost']:.4f}")
             print(f"   Time: {result['generation_time_ms']}ms")
             print(f"   Summary ID: {summary_id}")
 
@@ -743,8 +779,8 @@ Please respond to continue the discussion."""
                 "summary": result['summary_data'],
                 "metadata": {
                     "summary_id": summary_id,
-                    "tokens_used": result['tokens_used'],
-                    "generation_cost": result['generation_cost'],
+                    "tokens_used": result['total_tokens'],
+                    "generation_cost": result['cost'],
                     "generation_time_ms": result['generation_time_ms'],
                     "model": "gpt-4o-mini"
                 }

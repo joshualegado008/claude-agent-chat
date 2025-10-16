@@ -10,10 +10,36 @@ export interface AgentInfo {
   model: string;
 }
 
+// Prompt metadata - tracks the evolution of prompts through AI enhancements
+export interface PromptMetadata {
+  original_user_input: string;  // What the user originally typed
+  generated_title?: string;      // AI-generated concise title (if different from original)
+  generated_prompt?: string;     // AI-enhanced discussion prompt
+  generated_tags?: string[];     // AI-suggested tags
+  refined_topic?: string;        // Topic refined for agent selection (dynamic agents only)
+  expertise_requirements?: string[];  // Expertise analysis (dynamic agents only)
+  timestamps?: {
+    title_generated_at?: string;
+    prompt_generated_at?: string;
+    topic_refined_at?: string;
+  };
+}
+
+// Source/Citation for web research
+export interface Source {
+  source_id: string;
+  title: string;
+  url: string;
+  publisher?: string;
+  accessed_date?: string;
+  excerpt?: string;
+}
+
 export interface Conversation {
   id: string;
   title: string;
   initial_prompt: string;
+  prompt_metadata?: PromptMetadata;  // Prompt evolution metadata
   // Legacy 2-agent fields (optional for backward compatibility)
   agent_a_id?: string;
   agent_a_name?: string;
@@ -41,6 +67,9 @@ export interface Exchange {
   thinking_content?: string | null;
   response_content: string;
   tokens_used: number;
+  sources?: Source[];
+  search_query?: string;  // Search query if autonomous search was triggered
+  search_trigger_type?: string;  // Type of search trigger (fact_check, curiosity, etc.)
   created_at: string;
 }
 
@@ -149,6 +178,9 @@ export interface WebSocketMessage {
   trigger_type?: string;
   sources_count?: number;
   citations?: string[];
+  search_query?: string;  // Included in turn_complete for persistence
+  search_trigger_type?: string;  // Included in turn_complete for persistence
+  sources?: Source[];  // Full source objects
 }
 
 // WebSocket command types
@@ -230,6 +262,7 @@ export interface AgentContribution {
   key_concepts: string[];
   technical_terms_introduced: string[];
   novel_insights: string[];
+  sources_cited: string[];
   turn_count: number;
   engagement_level: 'high' | 'medium' | 'low';
   communication_style: string;

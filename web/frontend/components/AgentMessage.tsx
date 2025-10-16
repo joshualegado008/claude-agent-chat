@@ -3,12 +3,14 @@
  */
 
 import { getAgentColor } from '@/lib/utils';
-import { Bot, Brain } from 'lucide-react';
+import { Bot, Brain, ExternalLink } from 'lucide-react';
+import { Source } from '@/types';
 
 interface AgentMessageProps {
   agentName: string;
   content: string;
   thinking?: string | null;
+  sources?: Source[];
   isStreaming?: boolean;
   showThinking?: boolean;
 }
@@ -17,6 +19,7 @@ export function AgentMessage({
   agentName,
   content,
   thinking,
+  sources,
   isStreaming = false,
   showThinking = true,
 }: AgentMessageProps) {
@@ -69,6 +72,37 @@ export function AgentMessage({
           </p>
           {isStreaming && (
             <span className="inline-block w-2 h-4 bg-current animate-pulse ml-1"></span>
+          )}
+
+          {/* Sources/Citations */}
+          {sources && sources.length > 0 && (
+            <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+              <div className="text-xs text-gray-500 dark:text-gray-400 mb-2 font-medium">
+                Sources:
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {sources.map((source, idx) => (
+                  <a
+                    key={source.source_id || idx}
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-200 shadow-sm hover:shadow"
+                    title={source.excerpt || source.title}
+                  >
+                    <ExternalLink className="w-3 h-3 text-gray-400 group-hover:text-blue-500" />
+                    <span className="text-gray-700 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 max-w-[200px] truncate">
+                      {source.title}
+                    </span>
+                    {source.publisher && (
+                      <span className="text-gray-400 dark:text-gray-500">
+                        • {source.publisher}
+                      </span>
+                    )}
+                  </a>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       </div>

@@ -91,7 +91,8 @@ class DatabaseManager:
         agent_b_id: str = None,
         agent_b_name: str = None,
         tags: List[str] = None,
-        agents: List[Dict] = None  # New: Array of {id, name, qualification}
+        agents: List[Dict] = None,  # New: Array of {id, name, qualification}
+        prompt_metadata: Dict = None  # New: Prompt evolution metadata
     ) -> str:
         """
         Create a new conversation record.
@@ -109,6 +110,7 @@ class DatabaseManager:
             agent_b_name: (Legacy) Agent B name
             tags: Optional list of tags
             agents: (New) List of agent dicts: [{id, name, qualification}, ...]
+            prompt_metadata: (New) Prompt evolution metadata {original_user_input, generated_title, ...}
 
         Returns:
             conversation_id (UUID as string)
@@ -147,13 +149,16 @@ class DatabaseManager:
                 {'id': agent_b_id, 'name': agent_b_name, 'qualification': None}
             ])
 
+        # Convert prompt_metadata to JSON if provided
+        prompt_metadata_json = Json(prompt_metadata) if prompt_metadata else None
+
         with self.pg_conn.cursor() as cursor:
             cursor.execute("""
                 INSERT INTO conversations
-                (title, initial_prompt, agent_a_id, agent_a_name, agent_b_id, agent_b_name, tags, agents)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                (title, initial_prompt, agent_a_id, agent_a_name, agent_b_id, agent_b_name, tags, agents, prompt_metadata)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
-            """, (title, initial_prompt, agent_a_id, agent_a_name, agent_b_id, agent_b_name, tags or [], agents_json))
+            """, (title, initial_prompt, agent_a_id, agent_a_name, agent_b_id, agent_b_name, tags or [], agents_json, prompt_metadata_json))
 
             conversation_id = cursor.fetchone()[0]
             self.pg_conn.commit()
@@ -168,18 +173,39 @@ class DatabaseManager:
         agent_qualification: Optional[str] = None,
         thinking_content: Optional[str] = None,
         response_content: str = "",
-        tokens_used: int = 0
+        tokens_used: int = 0,
+        sources: Optional[List[Dict]] = None,  # Citations/sources used in this exchange
+        search_query: Optional[str] = None,  # New: Search query if autonomous search triggered
+        search_trigger_type: Optional[str] = None  # New: Type of search trigger
     ):
-        """Add an exchange (agent message) to a conversation."""
+        """
+        Add an exchange (agent message) to a conversation.
+
+        Args:
+            conversation_id: UUID of the conversation
+            turn_number: Turn number in the conversation
+            agent_name: Name of the agent
+            agent_qualification: Agent's qualification/expertise
+            thinking_content: Extended thinking content (optional)
+            response_content: Agent's response text
+            tokens_used: Number of tokens used
+            sources: List of citation/source dicts used in this exchange
+                     Each source: {source_id, title, url, publisher, accessed_date, excerpt}
+            search_query: Search query if autonomous search was triggered during this turn
+            search_trigger_type: Type of search trigger (e.g., fact_check, curiosity, verification)
+        """
+
+        # Convert sources to JSON for storage
+        sources_json = Json(sources) if sources else Json([])
 
         # Store in PostgreSQL
         with self.pg_conn.cursor() as cursor:
             cursor.execute("""
                 INSERT INTO exchanges
-                (conversation_id, turn_number, agent_name, agent_qualification, thinking_content, response_content, tokens_used)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                (conversation_id, turn_number, agent_name, agent_qualification, thinking_content, response_content, tokens_used, sources, search_query, search_trigger_type)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
-            """, (conversation_id, turn_number, agent_name, agent_qualification, thinking_content, response_content, tokens_used))
+            """, (conversation_id, turn_number, agent_name, agent_qualification, thinking_content, response_content, tokens_used, sources_json, search_query, search_trigger_type))
 
             exchange_id = cursor.fetchone()[0]
             self.pg_conn.commit()
