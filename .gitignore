@@ -60,3 +60,13 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+
+# Runtime/Cache files
+.cache/
+.claude/agents/dynamic/
+data/agents/
+data/performance/
+
+# Local documentation (not for repo)
+LINKEDIN_POST.md
+LINKEDIN_POST_V4.md
