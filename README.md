@@ -15,25 +15,62 @@ This project enables two Claude Code agents to have natural, extended conversati
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Coordinator                              │
-│  - Orchestrates agent turns                                 │
-│  - Manages conversation flow                                │
-│  - Handles logging and display                              │
-└──────────────┬──────────────────────────────┬───────────────┘
-               │                              │
-       ┌───────▼────────┐            ┌────────▼───────┐
-       │ Agent Runner   │            │  Context Mgr   │
-       │ - Subprocess   │            │  - History     │
-       │ - I/O handling │            │  - Summarize   │
-       │ - Error mgmt   │            │  - Checkpoints │
-       └───────┬────────┘            └────────┬───────┘
-               │                              │
-       ┌───────▼──────────────────────────────▼───────┐
-       │         Claude Code Agents                   │
-       │  Nova (Optimistic)  ↔  Atlas (Pragmatic)    │
-       └──────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                        User Interfaces                              │
+│                                                                     │
+│  ┌──────────────────────┐         ┌─────────────────────────┐    │
+│  │   Web Interface      │         │   Terminal CLI          │    │
+│  │   React + Next.js    │         │   coordinator.py        │    │
+│  │   localhost:3000     │         │   menu.py               │    │
+│  └──────────┬───────────┘         └───────────┬─────────────┘    │
+└─────────────┼──────────────────────────────────┼──────────────────┘
+              │                                  │
+              │ HTTP/WebSocket                   │ Direct Python API
+              ▼                                  ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                      Backend Services                               │
+│                                                                     │
+│  ┌──────────────────────────────────────────────────────────────┐ │
+│  │  FastAPI Backend (api.py + websocket_handler.py)            │ │
+│  │  • REST API endpoints                                        │ │
+│  │  • WebSocket streaming                                       │ │
+│  │  • Real-time agent coordination                              │ │
+│  └────────────────────────┬─────────────────────────────────────┘ │
+│                           │                                        │
+│  ┌────────────────────────┴─────────────────────────────────────┐ │
+│  │               Bridge Layer (bridge.py)                       │ │
+│  │  • Conversation Manager  • Metadata Extractor               │ │
+│  │  • Agent Coordinator     • Search Coordinator               │ │
+│  │  • Database Manager      • Citation Manager                 │ │
+│  └────────────────────────┬─────────────────────────────────────┘ │
+└───────────────────────────┼───────────────────────────────────────┘
+                            │
+              ┌─────────────┼─────────────┐
+              │             │             │
+              ▼             ▼             ▼
+┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
+│  Agent System    │  │  Search System   │  │  Data Layer      │
+│                  │  │                  │  │                  │
+│ • Agent Runner   │  │ • SearXNG API    │  │ • PostgreSQL     │
+│ • Agent Factory  │  │ • Content Ext.   │  │ • Qdrant         │
+│ • Dynamic Agents │  │ • Citation Mgr   │  │ • Embeddings     │
+│ • Anthropic API  │  │ • Query Cache    │  │ • Snapshots      │
+└──────────────────┘  └──────────────────┘  └──────────────────┘
+
+                    ┌────────────────────┐
+                    │  Dynamic Agents    │
+                    │  (N agents, any    │
+                    │   domain expertise)│
+                    └────────────────────┘
 ```
+
+**Modern Multi-Agent Architecture:**
+- **Dual Interfaces**: Web UI and Terminal CLI both access the same backend
+- **FastAPI Backend**: RESTful API + WebSocket for real-time streaming
+- **Bridge Layer**: Orchestrates conversation management, agent coordination, search, and database operations
+- **Agent System**: Dynamic agent creation with Anthropic API, supporting N agents with any domain expertise
+- **Autonomous Search**: Real-time web research via SearXNG with content extraction and citation tracking
+- **Data Persistence**: PostgreSQL for conversations/exchanges, Qdrant for semantic search with embeddings
 
 ## Features
 
