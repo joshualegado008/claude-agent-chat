@@ -1,22 +1,24 @@
 # Features Guide: Thinking Display & TRUE Real-Time Streaming
 
-Your multi-agent system now supports **authentic real-time streaming** - no fake delays!
+Your multi-agent system supports **authentic real-time streaming** with extended thinking - no fake delays!
+
+> **Note**: This guide uses generic agent names. The system creates specialized dynamic agents based on your conversation topic - you'll see domain experts with appropriate qualifications instead of generic names.
 
 ## 🧠 Feature 1: Extended Thinking
 
-See what Claude is "thinking" before it responds - the internal reasoning process that leads to its answer.
+See what the agent is "thinking" before it responds - the internal reasoning process that leads to its answer.
 
 ### What It Looks Like
 
 ```
-💭 Nova is thinking...
+💭 Agent is thinking...
 ────────────────────────────────────────────────────────────
 Let me consider this carefully. The user is asking about...
 I should address both the technical and philosophical aspects...
 The key tension here is between autonomy and reliability...
 ────────────────────────────────────────────────────────────
 
-💬 Nova responds:
+💬 Agent responds:
 ────────────────────────────────────────────────────────────
 I think we're on the cusp of something truly transformative...
 ```
@@ -135,25 +137,31 @@ Extended thinking uses additional tokens. Here's the breakdown:
 
 ## 🎨 Customizing Display Colors
 
-Edit `display_formatter.py` to change colors:
+### For Dynamic Agents
 
-```python
-AGENT_COLORS = {
-    'Nova': Fore.CYAN,      # Change to Fore.BLUE, Fore.GREEN, etc.
-    'Atlas': Fore.MAGENTA,  # Customize per agent
-}
-```
+The system automatically assigns colors to dynamically created agents. Colors cycle through a predefined palette for visual variety.
 
-Edit `config.yaml` to set agent colors:
+### For Static Agents (Advanced)
+
+If using custom static agents, edit `config.yaml`:
 
 ```yaml
 agents:
   agent_a:
-    name: "Nova"
+    name: "YourAgentName"
     color: "cyan"  # Available: cyan, yellow, green, red, blue, magenta, white
   agent_b:
-    name: "Atlas"
+    name: "AnotherAgent"
     color: "yellow"
+```
+
+Or edit `display_formatter.py` to set specific colors:
+
+```python
+AGENT_COLORS = {
+    'YourAgentName': Fore.CYAN,
+    'AnotherAgent': Fore.YELLOW,
+}
 ```
 
 Available colors: `BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE`

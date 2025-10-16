@@ -9,6 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.8.1] - 2025-10-16
+
+### Added
+
+#### 🎨 Terminal Visual Indicators for Autonomous Search
+
+- **Terminal search visualization**: Terminal version now displays inline search indicators matching web UI functionality
+- **Blue "Search triggered" boxes**: Show when autonomous search is triggered with query, trigger type, and agent name
+- **Green "Sources found" boxes**: Display when search completes with source count and top 3 sources (title + publisher)
+- **Feature parity**: Both terminal and web interfaces now have identical visual feedback for search events
+- **Real-time display**: Search indicators appear during conversation execution, not just in summaries
+- **Colorama integration**: Uses existing terminal color system for consistent styling
+
+**Files Modified**:
+- `display_formatter.py`: Added `print_search_triggered()` and `print_sources_found()` static methods (lines 925-1055)
+- `coordinator.py`: Integrated SearchCoordinator with visual indicators (lines 247-302)
+- `interactive_coordinator.py`: Added search visualization to advanced coordinator with interrupt support (lines 241-285)
+
+**Benefits**:
+- Users see exactly when and why searches are triggered in real-time
+- Source transparency - know which websites agents are citing
+- Consistent experience across web and terminal interfaces
+- No more "black box" - full visibility into autonomous research
+
+---
+
 ## [0.8.0] - 2025-10-16
 
 ### Added

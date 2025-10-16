@@ -261,8 +261,12 @@ SELECT * FROM conversation_summaries;
 -- Get conversation details
 SELECT * FROM conversations WHERE id = 'your-uuid-here';
 
--- Find conversations by agent
-SELECT * FROM conversations WHERE agent_a_name = 'Nova';
+-- Find conversations by agent (dynamic agents have varied names)
+SELECT * FROM conversations
+WHERE agent_a_name LIKE 'Dr.%' OR agent_a_name LIKE 'Prof.%';
+
+-- Find conversations by domain/topic
+SELECT * FROM conversations WHERE title ILIKE '%physics%';
 
 -- Count total exchanges
 SELECT COUNT(*) FROM exchanges;
@@ -273,6 +277,9 @@ FROM exchanges
 GROUP BY conversation_id
 ORDER BY exchange_count DESC
 LIMIT 10;
+
+-- View dynamic agent names used
+SELECT DISTINCT agent_name FROM exchanges ORDER BY agent_name;
 ```
 
 ---

@@ -176,14 +176,18 @@ promotions = asyncio.run(
 
 ---
 
-## Fallback Mode
+## Fallback Mode (Emergency Only)
 
-If `AgentCoordinator` fails to initialize, the system automatically falls back to static agents (Nova & Atlas).
+If `AgentCoordinator` fails to initialize, the system automatically falls back to the original static agents from v0.1.0 (**Nova** & **Atlas**).
 
 You'll see:
 ```
 ⚠️  Falling back to static agents (Nova & Atlas)
 ```
+
+**Note**: This is an **emergency fallback only** - it should rarely occur. The dynamic agent system is the default and recommended approach. Nova and Atlas are the legacy agents from the project's inception and are preserved for backwards compatibility.
+
+👉 **Learn about their history**: [ATLAS_NOVA_LEGACY.md](ATLAS_NOVA_LEGACY.md)
 
 ---
 

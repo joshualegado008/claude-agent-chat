@@ -12,6 +12,7 @@ Modern web interface for watching AI agents discuss topics in real-time.
 - Title input with validation
 - **AI-powered prompt generation** (click one button!)
 - Auto-generated tags (editable)
+- **Dynamic agent selection** - system creates specialized experts for your topic
 - Beautiful, intuitive UI
 - One-click start
 
@@ -19,9 +20,10 @@ Modern web interface for watching AI agents discuss topics in real-time.
 - **Real-time agent messages** with WebSocket streaming
 - Animated thinking bubbles
 - Typing indicators
-- Agent avatars (Nova & Atlas)
+- **Dynamic agent display** - see specialized experts with qualifications
 - Pause/Resume controls
 - Turn counter and progress tracking
+- **Multi-agent support** - 3+ agents in round-robin discussions
 
 #### 3. 📊 Interrupt Dashboard
 - Pause button triggers beautiful modal
@@ -342,13 +344,18 @@ npm run dev
 
 ## 📝 Future Enhancements
 
+**Completed:** ✅
+- [x] **Multi-Agent Support** - ✅ 3+ agents supported (v0.6.0)
+- [x] **Autonomous Search** - ✅ Real-time web research (v0.8.0)
+- [x] **Source Tracking** - ✅ Citation visibility (v0.8.0)
+
+**Planned:**
 - [ ] **Search Page** - Dedicated semantic search UI
 - [ ] **Settings Page** - Configure API keys, models, preferences
 - [ ] **Dark Mode Toggle** - Manual theme switching
 - [ ] **Export Options** - Download conversations as PDF, Markdown, JSON
 - [ ] **Shareable URLs** - Share conversations with others
 - [ ] **Conversation Branching** - Fork conversations at specific turns
-- [ ] **Multi-Agent Support** - More than 2 agents
 - [ ] **Web Notifications** - Browser notifications when conversation completes
 - [ ] **Mobile App** - Native iOS/Android apps
 

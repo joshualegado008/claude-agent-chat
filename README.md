@@ -1,16 +1,20 @@
 # Claude Agent Chat
 
-A production-ready multi-agent conversation system featuring dynamic agent creation, autonomous web research, and intelligent context management.
+**Version 0.8.1** - A production-ready multi-agent conversation system featuring dynamic agent creation, autonomous web research, and intelligent context management.
 
 ## Overview
 
-Create specialized AI experts on-demand for any topic and watch them engage in evidence-based discussions. The system dynamically generates domain experts, conducts autonomous web research, and manages sophisticated multi-agent conversations with full database persistence.
+Create specialized AI experts on-demand for any topic and watch them engage in evidence-based discussions. The system dynamically generates domain experts (as many as needed), conducts autonomous web research with real-time source tracking, and manages sophisticated multi-agent conversations with full database persistence.
 
+**Latest Feature (v0.8.1):** Terminal visual indicators for autonomous search - see search triggers and sources inline in both web and terminal interfaces! 🔍
+
+- **Dynamic Agent Creation**: Specialized experts generated on-demand for any topic
+- **Multi-Agent Conversations**: Support for 3+ agents with round-robin turn-taking
+- **Autonomous Search**: Real-time web research with source tracking and citation
 - **Multi-tier Memory**: Immediate context (last N exchanges) + checkpoints + summarized history
 - **Smart Context Building**: Optimizes token usage while preserving conversation coherence
-- **Automatic Checkpointing**: Marks and preserves key conversation milestones
-- **Recursive Summarization**: Condenses older exchanges when conversations grow long
-- **Beautiful Display**: Color-coded terminal output with progress tracking
+- **Dual Interfaces**: Modern web UI and powerful terminal CLI
+- **Beautiful Display**: Color-coded output with real-time progress tracking
 
 ## Architecture
 
@@ -743,7 +747,21 @@ System creates software engineering experts for a focused technical discussion.
 
 ## Customizing Agents
 
-The system dynamically creates agents based on conversation topics, but you can optionally create static agents by editing `.claude/agents/agent_a.md` or `agent_b.md`:
+### Dynamic Agents (Recommended)
+
+The system automatically creates specialized agents based on conversation topics using the dynamic agent system:
+
+- **Automatic**: System analyzes topic → creates experts → runs conversation
+- **Intelligent**: Agents have domain-appropriate skills and qualifications
+- **Rated**: Performance tracked and agents promoted through 6 ranks
+- **Persistent**: Agent profiles stored in `.claude/agents/dynamic/` and reused
+- **No configuration needed**: Just start a conversation and agents are created
+
+This is the **default and recommended approach** for all conversations.
+
+### Static Agents (Legacy/Advanced)
+
+For backwards compatibility or custom use cases, you can create static agents by editing `.claude/agents/agent_a.md` or `agent_b.md`:
 
 ```markdown
 # Your Agent Name
@@ -762,7 +780,7 @@ You are [persona description]
 [Role description for multi-agent conversations]
 ```
 
-**Note**: Dynamic agent creation is the default and recommended approach. Static agents are primarily for backwards compatibility.
+**Note**: The original static agents (**Nova** and **Atlas**) remain as fallback agents. See [ATLAS_NOVA_LEGACY.md](ATLAS_NOVA_LEGACY.md) for their story.
 
 ## Output Files
 
@@ -846,19 +864,24 @@ This implementation is based on modern LLM context management research:
 
 ## Future Enhancements
 
-Potential improvements:
-- [ ] True recursive summarization using LLM
-- [ ] Multi-agent support (3+ agents)
-- [ ] Real-time context editing
-- [x] Web interface (✅ Complete!)
-- [ ] Conversation branching
-- [ ] Agent personality templates
-- [x] Sentiment analysis (✅ In metadata extraction)
-- [x] Topic tracking (✅ In metadata extraction)
-- [ ] Mobile app
-- [ ] Conversation export/import
-- [ ] Custom agent creation UI
-- [ ] Advanced search filters
+**Completed:** ✅
+- [x] Multi-agent support (3+ agents) - ✅ v0.6.0
+- [x] Web interface - ✅ v0.3.0
+- [x] Sentiment analysis - ✅ v0.3.0 (metadata extraction)
+- [x] Topic tracking - ✅ v0.3.0 (metadata extraction)
+- [x] Agent personality templates - ✅ v0.4.0 (dynamic agent system)
+- [x] Autonomous search - ✅ v0.8.0
+- [x] Source citation tracking - ✅ v0.8.0
+
+**Potential Improvements:**
+- [ ] True recursive summarization using LLM (conversation compression)
+- [ ] Real-time context editing during conversations
+- [ ] Conversation branching (fork at specific turns)
+- [ ] Mobile app (native iOS/Android)
+- [ ] Conversation export to PDF
+- [ ] Advanced search filters (by agent, topic, date range)
+- [ ] Agent collaboration analytics
+- [ ] Multi-modal support (images, code execution)
 
 ## Contributing
 
@@ -877,7 +900,7 @@ MIT License - feel free to use and modify
 Built with:
 - **Backend**: Claude Code CLI, Python 3, FastAPI, PostgreSQL, Qdrant
 - **Frontend**: React, Next.js 14, Tailwind CSS, TypeScript
-- **Libraries**: colorama, PyYAML, psycopg2, openai (embeddings), tanstack/react-query
+- **Libraries**: colorama, PyYAML, psycopg2, openai (embeddings), tanstack/react-query, SearXNG
 - **Infrastructure**: Docker, Docker Compose
 
 Inspired by research in:
@@ -887,3 +910,8 @@ Inspired by research in:
 - Anthropic's Claude API best practices
 - Real-time WebSocket streaming
 - Modern React patterns (Server Components, Suspense)
+
+**Special Thanks:**
+To **Nova** (Optimistic Visionary) and **Atlas** (Pragmatic Analyst) - the original two agents who sparked this project in v0.1.0 and proved that multi-agent conversations could be truly engaging. Though the system has evolved far beyond them with dynamic agent creation, they remain as legacy fallback agents and will always be remembered as the foundation.
+
+👉 **[Read their full story in ATLAS_NOVA_LEGACY.md](ATLAS_NOVA_LEGACY.md)**
