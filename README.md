@@ -80,6 +80,78 @@ Conversation proceeds with specialized experts
 Rate agents after completion → Agents gain rank points
 ```
 
+### 🔍 Autonomous Search & Research (NEW!)
+**Transform theoretical debates into evidence-based discussions with real-time web research**
+
+- **Truly Autonomous**: Agents don't need explicit tool commands - search triggers naturally from their thinking
+- **Intelligent Trigger Detection**:
+  - **Uncertainty Markers**: "I believe...", "likely...", "might be..." → automatic verification
+  - **Fact-Checking**: Claims with statistics, percentages, or research citations → auto-verify
+  - **Explicit Requests**: "Let me search for...", "current data on..." → immediate search
+- **SearXNG Integration**: Privacy-focused metasearch aggregating Google, DuckDuckGo, Wikipedia
+- **Smart Budget Management**:
+  - 3 searches per turn max
+  - 15 searches per conversation max
+  - Rate limiting (10/minute)
+  - Cooldown periods between searches
+- **Query Deduplication**: 15-minute cache prevents redundant searches
+- **Content Extraction**: Automatic cleaning and summarization of top 3 results
+- **Citation Tracking**: Full provenance with publisher, date, URL
+- **Context Injection**: Search results inserted seamlessly into agent context
+- **WebSocket Streaming**: Real-time search progress visible in web UI
+
+**Why This Is Transformative:**
+- **Evidence-Based Debates**: Atlas (pragmatic analyst) can fact-check Nova's claims in real-time
+- **Ground Abstract Discussions**: Replace "I think..." with "According to [source]..."
+- **Research Loops**: Nova proposes → Atlas searches counter-evidence → Nova refines
+- **Beyond Training Cutoff**: Discuss current events, breaking news, emerging technologies
+- **Emergent Behavior**: Agents learn and adapt during conversations
+
+**Example Trigger Flow:**
+```
+Agent thinking: "I believe antibiotic resistance affects 2.8M people annually -
+                 let me verify this statistic"
+↓
+System: Detects uncertainty + fact claim
+↓
+Search: "antibiotic resistance statistics annual cases"
+↓
+SearXNG: Returns top 8 results from multiple engines
+↓
+Extract: Pull clean content from top 3 sources
+↓
+Citations: Create [1], [2], [3] references
+↓
+Inject: Add to next agent's context with full sourcing
+↓
+Agent response: "Actually, according to CDC data [1], the figure is 2.8 million..."
+```
+
+**Configuration** (`config.yaml`):
+```yaml
+search:
+  searxng_url: "https://s.llam.ai"  # Or self-hosted
+  engines: [google, duckduckgo, wikipedia]
+  limits:
+    max_per_turn: 3
+    max_per_conversation: 15
+  cache:
+    enabled: true
+    ttl_minutes: 15
+```
+
+This makes the system **genuinely useful**, not just entertaining - agents conducting real research during conversations!
+
+👉 **[See search_coordinator.py for implementation](search_coordinator.py)**
+
+### 👤 Agent Qualification Display (NEW!)
+- **Visible Credentials**: Agents see each other's qualifications in conversation context
+- **UI Display**: Agent names show qualifications in header (e.g., "Oscar Solis - Biology ↔ Dr. Michael Leach - Public Policy")
+- **Context Awareness**: Agents know who they're speaking to - no more guessing
+- **Database Persistence**: Qualifications stored in `agent_qualification` column
+- **Metadata Fallback**: Old conversations retroactively show qualifications from stored metadata
+- **Format**: "Agent Name (Qualification)" in context, "Agent Name - Qualification" in UI
+
 ### 💾 Database Persistence & Semantic Search
 - **PostgreSQL Storage**: All conversations, exchanges, and metadata persistently stored
 - **Qdrant Vector Search**: Semantic search across conversation history using embeddings

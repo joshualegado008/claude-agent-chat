@@ -107,6 +107,118 @@ class AgentFactory:
                 duplicates = total_files - len(self.used_names)
                 print(f"   📝 Loaded {len(self.used_names)} unique agents ({total_files} files, {duplicates} duplicates detected)")
 
+    def _generate_unique_name_with_faker(self, domain: AgentDomain, classification: Dict) -> Optional[str]:
+        """
+        Generate diverse, unique agent names using faker library.
+
+        This method dramatically reduces duplicate name collisions by:
+        - Using faker's extensive name database (1000+ names per locale)
+        - Trying multiple locales for diversity
+        - Applying domain-specific title logic
+        - Checking uniqueness before returning
+
+        Args:
+            domain: Agent's domain (TECHNOLOGY, MEDICINE, etc.)
+            classification: Classification dict with domain/class info
+
+        Returns:
+            Unique name with optional title (e.g., "Sarah Kim" or "Dr. James Rodriguez")
+            Returns None if faker fails (triggers Claude API fallback)
+        """
+        try:
+            from faker import Faker
+            import random
+
+            # Domain-specific title configuration
+            # Target: ~30% overall title usage, varied by domain
+            TITLE_CONFIG = {
+                'TECHNOLOGY': {
+                    'titles': ['', '', '', '', 'Engineer', 'Researcher', 'Architect'],
+                    'probability': 0.2  # 20% get titles
+                },
+                'MEDICINE': {
+                    'titles': ['Dr.', 'Dr.', 'Nurse', 'Practitioner', '', ''],
+                    'probability': 0.5  # 50% get titles (medical field)
+                },
+                'HUMANITIES': {
+                    'titles': ['Prof.', 'Dr.', '', '', ''],
+                    'probability': 0.4  # 40% get titles (academic)
+                },
+                'SCIENCE': {
+                    'titles': ['Dr.', 'Prof.', 'Researcher', '', ''],
+                    'probability': 0.4  # 40% get titles
+                },
+                'BUSINESS': {
+                    'titles': ['', '', '', 'CTO', 'CEO', 'VP', 'Analyst'],
+                    'probability': 0.25  # 25% get titles
+                },
+                'LAW': {
+                    'titles': ['Attorney', 'Esq.', '', ''],
+                    'probability': 0.35  # 35% get titles
+                },
+                'ARTS': {
+                    'titles': ['', '', '', '', 'Maestro', 'Designer'],
+                    'probability': 0.15  # 15% get titles (mostly informal)
+                }
+            }
+
+            # Diverse locales for cultural variety
+            # Rotate through different regions to avoid clustering
+            locales = [
+                'en_US',   # American names
+                'en_GB',   # British names
+                'es_ES',   # Spanish names
+                'fr_FR',   # French names
+                'de_DE',   # German names
+                'it_IT',   # Italian names
+                'zh_CN',   # Chinese names
+                'ja_JP',   # Japanese names
+                'ko_KR',   # Korean names
+                'pt_BR',   # Brazilian names
+                'pl_PL',   # Polish names
+                'nl_NL',   # Dutch names
+                'sv_SE'    # Swedish names
+            ]
+
+            # Try up to 10 different combinations before giving up
+            for attempt in range(10):
+                # Pick locale (rotate through list for max diversity)
+                locale = locales[attempt % len(locales)]
+                fake = Faker(locale)
+
+                # Generate base name (faker handles cultural appropriateness)
+                base_name = fake.name()
+
+                # Check if name is already used
+                if base_name in self.used_names:
+                    continue  # Try next locale
+
+                # Apply domain-specific title logic
+                domain_rules = TITLE_CONFIG.get(
+                    domain.name,
+                    {'probability': 0.3, 'titles': ['', '', 'Dr.']}  # Default fallback
+                )
+
+                final_name = base_name
+
+                # Roll dice for title (based on domain probability)
+                if random.random() < domain_rules['probability']:
+                    title = random.choice(domain_rules['titles'])
+                    if title:  # Empty string means no title
+                        final_name = f"{title} {base_name}"
+
+                # Final uniqueness check (in case title made it duplicate)
+                if final_name not in self.used_names:
+                    return final_name
+
+            # If we exhausted all attempts, return None (triggers Claude fallback)
+            print(f"   ⚠️  Faker couldn't generate unique name after 10 attempts")
+            return None
+
+        except Exception as e:
+            print(f"   ⚠️  Faker library error: {e}")
+            return None
+
     async def create_agent(
         self,
         expertise_description: str,
@@ -146,7 +258,14 @@ class AgentFactory:
                 raise ValueError("Taxonomy required for classification")
             classification = self.taxonomy.classify_expertise(expertise_description)
             if not classification:
-                raise ValueError(f"Could not classify: {expertise_description}")
+                # Use generic fallback classification
+                print(f"   ⚠️  Classification failed - using generic HUMANITIES classification")
+                classification = {
+                    'domain': AgentDomain.HUMANITIES,
+                    'primary_class': 'General Studies',
+                    'subclass': 'Humanities',
+                    'confidence': 0.0
+                }
 
         domain = classification['domain']
         primary_class = classification['primary_class']
@@ -154,7 +273,24 @@ class AgentFactory:
 
         print(f"   └─ Classified as: {primary_class} ({domain.value})")
 
-        # Step 2: Generate agent details using Claude API (with uniqueness check)
+        # Step 2: Generate unique name using faker library (pre-Claude)
+        generated_name = None
+        try:
+            generated_name = self._generate_unique_name_with_faker(domain, classification)
+            if generated_name:
+                print(f"   └─ Name generated: {generated_name}")
+                # Pass name to Claude via context
+                name_context = f"Agent name (use exactly): {generated_name}"
+                if context:
+                    context = f"{name_context}\n{context}"
+                else:
+                    context = name_context
+            else:
+                print(f"   └─ Name generation: Using Claude API fallback")
+        except Exception as e:
+            print(f"   ⚠️  Faker failed ({e}), using Claude API")
+
+        # Step 3: Generate agent details using Claude API (with uniqueness check)
         try:
             agent_details = await self._generate_agent_details(
                 expertise_description,
@@ -163,9 +299,12 @@ class AgentFactory:
             )
             print(f"   └─ Generated: {agent_details['name']}")
 
-            # Register the name so other concurrent creations don't reuse it
+            # Defensive check: name should already be registered in _generate_agent_details
+            # This is a safety net in case of errors
             async with self._name_lock:
-                self.used_names.add(agent_details['name'])
+                if agent_details['name'] not in self.used_names:
+                    print(f"   ⚠️  Warning: Name not registered, adding now (shouldn't happen)")
+                    self.used_names.add(agent_details['name'])
 
         except Exception as e:
             print(f"   ❌ Failed to generate details: {e}")
@@ -183,15 +322,24 @@ class AgentFactory:
             print(f"   ❌ Failed to generate prompt: {e}")
             raise
 
+        # Step 3.5: Extract intelligent specialization (Three-Tier Taxonomy)
+        try:
+            specialization = await self._extract_specialization(
+                expertise_description,
+                primary_class
+            )
+            print(f"   └─ Specialization: {specialization}")
+        except Exception as e:
+            # Fallback to truncation if extraction fails
+            specialization = expertise_description[:60].strip()
+            print(f"   ⚠️  Using fallback specialization: {specialization}")
+
         # Step 4: Create AgentProfile
         agent_id = f"dynamic-{uuid.uuid4().hex[:12]}"
         agent_file_path = str(self.agents_dir / f"{agent_id}.md")
 
         # Generate hash-based embedding (simple for Phase 1)
         embedding = self._generate_hash_embedding(expertise_description)
-
-        # Calculate specialization from description
-        specialization = expertise_description[:100].strip()
 
         agent = AgentProfile(
             agent_id=agent_id,
@@ -270,10 +418,11 @@ class AgentFactory:
 
 Generate a complete agent profile with the following:
 
-1. **Name**: Create a realistic name with appropriate title (Dr., Prof., etc. based on domain)
-   - Medicine/Science: Use "Dr."
-   - Humanities: Use "Prof." or "Dr."
-   - Technology/Business: Use first name only or title like "Engineer"
+1. **Name**: If a name is provided in context, USE IT EXACTLY AS GIVEN. Otherwise, create a realistic name.
+   - Prefer NO TITLE for most agents (makes roster more approachable)
+   - Only use titles (Dr., Prof., Engineer) if absolutely fitting for the domain
+   - Technology/Business: Avoid titles (just "FirstName LastName")
+   - Academic fields: Occasional "Prof." or "Dr." is acceptable
 
 2. **Core Skills**: List 3-5 specific, concrete skills this agent excels at
 
@@ -337,6 +486,10 @@ Be creative but realistic. The name should sound like a real expert in this fiel
                                 unique_name = f"{generated_name} {counter}"
                             details['name'] = unique_name
                             print(f"      ⚠️  Duplicate name - using '{unique_name}'")
+
+                    # Register name immediately to prevent race conditions
+                    # This must happen inside the lock before returning
+                    self.used_names.add(details['name'])
 
                 return details
 
@@ -448,6 +601,78 @@ Generate the complete system prompt now. Use markdown formatting. Be specific ab
         except Exception as e:
             print(f"   ⚠️  Prompt generation error: {e}")
             return self._generate_fallback_prompt(agent_details, expertise_description)
+
+    async def _extract_specialization(
+        self,
+        expertise_description: str,
+        primary_class: str
+    ) -> str:
+        """
+        Extract concise specialization from expertise description using Claude API.
+
+        This implements the third tier of the taxonomy hierarchy:
+        Domain > Class > Specialization
+
+        Args:
+            expertise_description: Full expertise description
+            primary_class: The agent's primary class (e.g., "Cybersecurity", "AI and Machine Learning")
+
+        Returns:
+            Concise specialization phrase (2-8 words)
+
+        Examples:
+            - "Quantum machine learning algorithms" → "Quantum ML"
+            - "LLM jailbreaking and context poisoning" → "LLM Security"
+            - "Byzantine taxation systems 400-1200 CE" → "Byzantine Taxation"
+        """
+        # Smart fallback: extract first 60 chars as baseline
+        fallback = expertise_description[:60].strip()
+
+        prompt = f"""Given this expertise description:
+"{expertise_description}"
+
+And the primary classification: {primary_class}
+
+Extract a concise specialization (2-8 words) that captures the unique focus within this class.
+
+Guidelines:
+- Be specific but concise
+- Avoid redundancy with the class name
+- Focus on what makes THIS agent special within the class
+- Use technical terms when appropriate
+- Remove generic words like "expert in", "specialist in"
+
+Examples:
+- "Expert in quantum machine learning algorithms" → "Quantum ML"
+- "LLM jailbreaking and context poisoning techniques" → "LLM Security"
+- "Byzantine taxation systems from 400-1200 CE" → "Byzantine Taxation"
+- "React component performance optimization" → "React Performance"
+
+Return ONLY the specialization phrase (no quotes, no explanation)."""
+
+        try:
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=30,
+                temperature=0.3,  # Lower temperature for consistency
+                messages=[
+                    {"role": "user", "content": prompt}
+                ]
+            )
+
+            specialization = response.content[0].text.strip().strip('"\'')
+
+            # Validate length (should be 2-8 words, but accept up to 12)
+            word_count = len(specialization.split())
+            if 2 <= word_count <= 12 and len(specialization) <= 80:
+                return specialization
+            else:
+                print(f"   ⚠️  Specialization too long ({word_count} words), using fallback")
+                return fallback
+
+        except Exception as e:
+            print(f"   ⚠️  Specialization extraction error: {e}, using fallback")
+            return fallback
 
     def _write_agent_file(self, agent: AgentProfile) -> None:
         """

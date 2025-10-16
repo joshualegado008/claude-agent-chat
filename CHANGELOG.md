@@ -9,6 +9,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.8.0] - 2025-10-16
+
+### Added
+
+#### 🔍 Autonomous Search & Real-Time Research
+
+- **Autonomous web search**: Agents automatically research claims and verify facts during conversations without explicit tool commands
+- **Intelligent trigger detection**: Three-tier system detecting uncertainty markers, fact-checking needs, and explicit requests
+  - **Uncertainty markers**: "I believe...", "likely...", "might be..." trigger automatic verification
+  - **Fact-checking patterns**: Claims with statistics, percentages, or research citations are auto-verified
+  - **Explicit requests**: "Let me search for...", "current data on..." trigger immediate searches
+- **SearXNG integration**: Privacy-focused metasearch aggregating multiple engines (Google, DuckDuckGo, Wikipedia)
+- **Smart budget management**: Configurable limits (3 searches/turn, 15/conversation) with rate limiting (10/minute) and cooldown periods
+- **Query deduplication**: 15-minute cache prevents redundant searches and reduces API load
+- **Content extraction**: Automatic cleaning and summarization of top 3 search results with markdown formatting
+- **Citation tracking**: Full provenance tracking with publisher, date, URL, and relevance scoring
+- **Context injection**: Search results seamlessly inserted into agent context with proper formatting and instructions
+- **WebSocket streaming**: Real-time search progress, query display, and results visible in web UI
+- **Research loops**: Agents can fact-check each other's claims, creating evidence-based debates instead of theoretical discussions
+
+**Why This Matters**: Transforms the system from entertaining to **genuinely useful**. Agents can now:
+- Conduct evidence-based debates with real-time fact-checking
+- Discuss current events beyond training cutoff
+- Ground abstract discussions in real-world data
+- Create emergent learning behavior through research loops
+
+**Files Added**:
+- `search_coordinator.py`: Main search orchestration with trigger detection and budget enforcement
+- `search_budget.py`: Budget tracking and enforcement (per-turn, per-conversation, rate limits)
+- `query_cache.py`: Query deduplication with TTL-based expiration
+- `citation_manager.py`: Citation tracking and reference management
+- `content_extractor.py`: Web content extraction and cleaning
+- `datetime_provider.py`: Current datetime injection for time-aware discussions
+- `research_mode.py`: Extended research capabilities
+
+**Configuration**: Added `search:` section to `config.yaml` with SearXNG URL, engine selection, limits, and cache settings
+
+#### 👤 Agent Qualification Visibility
+
+- **Agent qualification display**: Agents now see each other's credentials in conversation context, eliminating guesswork
+- **Database persistence**: Added `agent_qualification` column to `exchanges` table for storing agent credentials
+- **UI display**: Qualifications shown in header format: "Agent Name - Qualification" (e.g., "Oscar Solis - Biology ↔ Dr. Michael Leach - Public Policy")
+- **Context awareness**: Agents see qualifications in format: "Turn X - Agent Name (Qualification): response..."
+- **Metadata fallback**: Old conversations retroactively show qualifications from stored metadata
+- **Network retry logic**: Added exponential backoff (1s → 2s → 4s) for transient network errors in `agent_runner.py`
+- **No more guessing**: Eliminates phrases like "appears to be", "seems to be", "presumably" from agent responses
+
+**Migration**: `migrations/005_add_agent_qualification_to_exchanges.sql`
+
+**Files Modified**:
+- `conversation_manager_persistent.py`: Added qualification parameter and metadata fallback logic
+- `db_manager.py`: Updated to persist qualifications to PostgreSQL and Qdrant
+- `coordinator_with_memory.py`: Pass qualifications when saving exchanges
+- `web/backend/websocket_handler.py`: Track and pass qualifications for web conversations
+- `web/backend/api.py`: Return qualifications in API responses
+- `web/frontend/app/conversation/[id]/page.tsx`: Display qualifications in UI header
+- `agent_runner.py`: Added retry logic with exponential backoff for network errors
+
+### Why These Features Matter
+
+**Autonomous Search** transforms the system from entertaining to **genuinely useful**:
+- Debates become **evidence-based** rather than purely theoretical
+- Agents can discuss **current events** beyond training cutoff dates
+- **Research loops** create emergent learning behavior (Nova proposes → Atlas searches counter-evidence → Nova refines)
+- Makes Atlas (pragmatic analyst) truly powerful with real-time fact-checking capabilities
+
+**Agent Qualifications** eliminate confusion and improve conversation quality:
+- No more "appears to be", "seems to be", "presumably" guessing about agent expertise
+- Agents know who they're talking to, enabling more focused, domain-appropriate discussions
+- Both human readers and AI agents see credentials simultaneously
+
+---
+
 ## [0.7.0] - 2025-10-15
 
 ### Added

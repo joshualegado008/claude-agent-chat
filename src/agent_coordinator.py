@@ -343,6 +343,82 @@ class AgentCoordinator:
 
         return promotions
 
+    async def grant_participation_points(
+        self,
+        agent_ids: List[str],
+        conversation_id: str
+    ) -> Dict[str, bool]:
+        """
+        Grant participation points to agents without detailed ratings.
+
+        Used when user skips the rating process but we still want to
+        acknowledge the agents participated in the conversation.
+
+        Process:
+        1. For each agent, increment total_conversations
+        2. Award 1 participation point (less than 0-5 from ratings)
+        3. Update last_used timestamp
+        4. Check for promotions
+        5. Save performance profiles
+
+        Args:
+            agent_ids: List of agent IDs to grant points
+            conversation_id: Unique ID for this conversation
+
+        Returns:
+            Dict mapping agent_id to was_promoted (bool)
+        """
+
+        promotions = {}
+
+        print(f"\n{'━' * 60}")
+        print("✅ Granting participation points...")
+        print(f"{'━' * 60}\n")
+
+        for agent_id in agent_ids:
+            agent = self.active_agents.get(agent_id)
+            if not agent:
+                continue
+
+            # Get or create performance profile
+            if agent_id not in self.rating_system.performance_profiles:
+                self.rating_system.register_agent(agent_id, agent.name)
+
+            profile = self.rating_system.performance_profiles[agent_id]
+
+            # Grant participation credit
+            old_rank = profile.current_rank
+            profile.total_conversations += 1
+            profile.promotion_points += 1  # 1 participation point
+            profile.last_used = datetime.now()
+
+            # Check for promotion
+            new_rank = profile._check_promotion()
+
+            if new_rank != old_rank:
+                DisplayFormatter.print_promotion_announcement(
+                    agent.name,
+                    old_rank,
+                    new_rank,
+                    profile.promotion_points
+                )
+                promotions[agent_id] = True
+            else:
+                promotions[agent_id] = False
+
+            # Print participation acknowledgment
+            print(f"  ✓ {agent.name}: +1 participation point ({profile.promotion_points} total)")
+
+            # Save performance profile
+            self.store.save_performance_profile(profile)
+
+            # Update lifecycle tier
+            self.lifecycle_manager.update_tier(agent_id, self.rating_system)
+
+        print(f"\n{'━' * 60}")
+
+        return promotions
+
     def get_leaderboard(self, top_n: int = 10) -> List:
         """
         Get top performing agents.

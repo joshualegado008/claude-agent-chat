@@ -39,6 +39,7 @@ export function useCreateConversation() {
       initial_prompt?: string;
       tags?: string[];
       generate_prompt?: boolean;
+      agent_ids?: string[];
     }) => api.createConversation(data),
     onSuccess: () => {
       // Invalidate conversations list to refetch
@@ -78,5 +79,14 @@ export function useSearchConversations(query: string, limit: number = 10) {
 export function useGeneratePrompt() {
   return useMutation({
     mutationFn: (title: string) => api.generatePrompt(title),
+  });
+}
+
+/**
+ * Hook to select agents dynamically based on topic
+ */
+export function useSelectAgents() {
+  return useMutation({
+    mutationFn: (topic: string) => api.selectAgents(topic),
   });
 }

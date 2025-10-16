@@ -6,6 +6,7 @@ creating truly independent Claude instances with their own conversation contexts
 """
 
 import os
+import time
 import anthropic
 from pathlib import Path
 from typing import List, Dict, Optional
@@ -35,6 +36,8 @@ class AgentRunner:
         """
         self.config = config
         self.timeout = 120  # 2 minutes default timeout
+        self.max_retries = 3  # Retry transient network errors up to 3 times
+        self.retry_base_delay = 1.0  # Base delay in seconds for exponential backoff
         self.settings = get_settings()
 
         # Initialize Anthropic client using settings
@@ -59,12 +62,23 @@ class AgentRunner:
 
     def _load_agent_prompt(self, agent_id: str) -> str:
         """Load an agent's system prompt from their markdown file."""
-        agent_file = Path('.claude') / 'agents' / f'{agent_id}.md'
+        # Check both static and dynamic agent directories
+        # Static agents: .claude/agents/{agent_id}.md
+        # Dynamic agents: .claude/agents/dynamic/{agent_id}.md
+        static_path = Path('.claude') / 'agents' / f'{agent_id}.md'
+        dynamic_path = Path('.claude') / 'agents' / 'dynamic' / f'{agent_id}.md'
 
-        if not agent_file.exists():
+        # Try static path first (for backwards compatibility)
+        if static_path.exists():
+            agent_file = static_path
+        elif dynamic_path.exists():
+            agent_file = dynamic_path
+        else:
             raise FileNotFoundError(
-                f"Agent file not found: {agent_file}\n"
-                f"Please create {agent_file} with the agent's personality and instructions."
+                f"Agent file not found at:\n"
+                f"  {static_path}\n"
+                f"  {dynamic_path}\n"
+                f"Please create one of these files with the agent's personality and instructions."
             )
 
         with open(agent_file, 'r', encoding='utf-8') as f:
@@ -200,10 +214,12 @@ class AgentRunner:
             True if agent is available, False otherwise
         """
         try:
-            # Check if agent file exists
-            agent_file = Path('.claude') / 'agents' / f'{agent_id}.md'
-            if not agent_file.exists():
-                print(f"❌ Agent file not found: {agent_file}")
+            # Check if agent file exists (static or dynamic)
+            static_path = Path('.claude') / 'agents' / f'{agent_id}.md'
+            dynamic_path = Path('.claude') / 'agents' / 'dynamic' / f'{agent_id}.md'
+
+            if not static_path.exists() and not dynamic_path.exists():
+                print(f"❌ Agent file not found at {static_path} or {dynamic_path}")
                 return False
 
             # Check if API key is set
@@ -302,49 +318,75 @@ class AgentRunner:
                 response_text = ""
                 tool_uses = []
 
-                # Make streaming API call
-                with self.client.messages.stream(
-                    model=model,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    system=system_prompt,
-                    messages=messages,
-                    tools=tools,
-                    thinking=thinking_config if thinking_config else None
-                ) as stream:
-                    for event in stream:
-                        # Handle thinking blocks
-                        if hasattr(event, 'type') and event.type == 'content_block_start':
-                            if hasattr(event, 'content_block') and hasattr(event.content_block, 'type'):
-                                if event.content_block.type == 'thinking':
-                                    # Signal start of thinking
-                                    yield ('thinking_start', '', {})
+                # Retry loop for transient network errors
+                for retry_attempt in range(self.max_retries + 1):
+                    try:
+                        # Make streaming API call
+                        with self.client.messages.stream(
+                            model=model,
+                            max_tokens=max_tokens,
+                            temperature=temperature,
+                            system=system_prompt,
+                            messages=messages,
+                            tools=tools,
+                            thinking=thinking_config if thinking_config else None
+                        ) as stream:
+                            for event in stream:
+                                # Handle thinking blocks
+                                if hasattr(event, 'type') and event.type == 'content_block_start':
+                                    if hasattr(event, 'content_block') and hasattr(event.content_block, 'type'):
+                                        if event.content_block.type == 'thinking':
+                                            # Signal start of thinking
+                                            yield ('thinking_start', '', {})
 
-                        elif hasattr(event, 'type') and event.type == 'content_block_delta':
-                            if hasattr(event, 'delta'):
-                                if hasattr(event.delta, 'type'):
-                                    if event.delta.type == 'thinking_delta':
-                                        # Yield thinking chunks
-                                        if hasattr(event.delta, 'thinking'):
-                                            thinking_text += event.delta.thinking
-                                            yield ('thinking', event.delta.thinking, {})
-                                    elif event.delta.type == 'text_delta':
-                                        # Yield text chunks
-                                        if hasattr(event.delta, 'text'):
-                                            response_text += event.delta.text
-                                            yield ('text', event.delta.text, {})
+                                elif hasattr(event, 'type') and event.type == 'content_block_delta':
+                                    if hasattr(event, 'delta'):
+                                        if hasattr(event.delta, 'type'):
+                                            if event.delta.type == 'thinking_delta':
+                                                # Yield thinking chunks
+                                                if hasattr(event.delta, 'thinking'):
+                                                    thinking_text += event.delta.thinking
+                                                    yield ('thinking', event.delta.thinking, {})
+                                            elif event.delta.type == 'text_delta':
+                                                # Yield text chunks
+                                                if hasattr(event.delta, 'text'):
+                                                    response_text += event.delta.text
+                                                    yield ('text', event.delta.text, {})
 
-                    # Get final message with token usage and tool uses
-                    final_message = stream.get_final_message()
-                    if final_message:
-                        if hasattr(final_message, 'usage'):
-                            total_input_tokens += final_message.usage.input_tokens
-                            total_output_tokens += final_message.usage.output_tokens
+                            # Get final message with token usage and tool uses
+                            final_message = stream.get_final_message()
+                            if final_message:
+                                if hasattr(final_message, 'usage'):
+                                    total_input_tokens += final_message.usage.input_tokens
+                                    total_output_tokens += final_message.usage.output_tokens
 
-                        # Check for tool uses
-                        for content_block in final_message.content:
-                            if content_block.type == 'tool_use':
-                                tool_uses.append(content_block)
+                                # Check for tool uses
+                                for content_block in final_message.content:
+                                    if content_block.type == 'tool_use':
+                                        tool_uses.append(content_block)
+
+                        # Streaming succeeded - break out of retry loop
+                        break
+
+                    except anthropic.APIError:
+                        # API errors (rate limits, auth, etc.) are not retryable - re-raise immediately
+                        raise
+
+                    except Exception as e:
+                        # Network/connection errors - retry if we have attempts left
+                        if retry_attempt < self.max_retries:
+                            delay = self.retry_base_delay * (2 ** retry_attempt)
+                            error_preview = str(e)[:100]  # First 100 chars
+                            print(f"⚠️  Network error (attempt {retry_attempt + 1}/{self.max_retries + 1}): {error_preview}")
+                            print(f"   Retrying in {delay}s...")
+                            time.sleep(delay)
+                            # Reset partial state before retry
+                            thinking_text = ""
+                            response_text = ""
+                            tool_uses = []
+                        else:
+                            # Final attempt failed - re-raise to outer handler
+                            raise
 
                 # Accumulate text from this turn
                 all_thinking_text += thinking_text
@@ -563,10 +605,12 @@ class AgentPool:
         all_valid = True
         for agent_id, agent in self.agents.items():
             try:
-                # Check if agent file exists
-                agent_file = Path('.claude') / 'agents' / f'{agent_id}.md'
-                if not agent_file.exists():
-                    print(f"❌ Agent file not found: {agent_file}")
+                # Check if agent file exists (static or dynamic)
+                static_path = Path('.claude') / 'agents' / f'{agent_id}.md'
+                dynamic_path = Path('.claude') / 'agents' / 'dynamic' / f'{agent_id}.md'
+
+                if not static_path.exists() and not dynamic_path.exists():
+                    print(f"❌ Agent file not found at {static_path} or {dynamic_path}")
                     all_valid = False
                     continue
 

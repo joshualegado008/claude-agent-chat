@@ -2,9 +2,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Sparkles, Send, Loader2, Tag, X } from 'lucide-react';
-import { useGeneratePrompt, useCreateConversation } from '@/hooks/useConversations';
+import { Sparkles, Send, Loader2, Tag, X, Users } from 'lucide-react';
+import { useGeneratePrompt, useCreateConversation, useSelectAgents } from '@/hooks/useConversations';
 import { Loading } from '@/components/Loading';
+import { AgentSelector } from '@/components/AgentSelector';
+import type { AgentProfile, AgentSelectionMetadata } from '@/types';
 
 export default function NewConversationPage() {
   const router = useRouter();
@@ -13,8 +15,14 @@ export default function NewConversationPage() {
   const [tags, setTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState('');
   const [showPromptPreview, setShowPromptPreview] = useState(false);
+  const [selectedAgents, setSelectedAgents] = useState<AgentProfile[] | null>(null);
+  const [agentMetadata, setAgentMetadata] = useState<AgentSelectionMetadata | null>(null);
+  const [showAgentSelector, setShowAgentSelector] = useState(false);
+  const [agentProgress, setAgentProgress] = useState<string>('');
+  const [isSelectingAgents, setIsSelectingAgents] = useState(false);
 
   const generatePromptMutation = useGeneratePrompt();
+  const selectAgentsMutation = useSelectAgents();
   const createConversationMutation = useCreateConversation();
 
   const handleGeneratePrompt = async () => {
@@ -53,6 +61,93 @@ export default function NewConversationPage() {
     setTags(tags.filter(t => t !== tagToRemove));
   };
 
+  const handleSelectAgents = async () => {
+    if (!title.trim()) return;
+
+    setIsSelectingAgents(true);
+    setAgentProgress('Starting agent selection...');
+
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const eventSource = new EventSource(`${API_URL}/api/agents/select-stream?topic=${encodeURIComponent(title)}`);
+
+      eventSource.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        switch (data.type) {
+          case 'start':
+            setAgentProgress('Starting agent selection...');
+            break;
+          case 'refining_topic':
+            setAgentProgress('🔍 Refining topic...');
+            break;
+          case 'topic_refined':
+            setAgentProgress('✅ Topic refined');
+            break;
+          case 'analyzing_expertise':
+            setAgentProgress('🧠 Analyzing expertise requirements...');
+            break;
+          case 'expertise_analyzed':
+            setAgentProgress(`✅ Found ${data.count} expertise areas needed`);
+            break;
+          case 'checking_agent':
+            setAgentProgress(`🔍 Checking agent ${data.current}/${data.total}...`);
+            break;
+          case 'agent_reused':
+            setAgentProgress(`♻️ Reusing: ${data.agent_name} (${data.current}/${data.total})`);
+            break;
+          case 'creating_agent':
+            setAgentProgress(`🔮 Creating agent ${data.current}/${data.total}...`);
+            break;
+          case 'agent_created':
+            setAgentProgress(`✅ Created: ${data.agent_name} - ${data.class} (${data.current}/${data.total})`);
+            break;
+          case 'complete':
+            setSelectedAgents(data.agents);
+            setAgentMetadata(data.metadata);
+            setShowAgentSelector(true);
+            setIsSelectingAgents(false);
+            setAgentProgress('');
+            eventSource.close();
+            break;
+          case 'error':
+            console.error('Agent selection error:', data.message);
+            alert(`Failed to select agents: ${data.message}`);
+            setIsSelectingAgents(false);
+            setAgentProgress('');
+            eventSource.close();
+            break;
+        }
+      };
+
+      eventSource.onerror = (error) => {
+        console.error('EventSource error:', error);
+        alert('Failed to connect to agent selection service. Please try again.');
+        setIsSelectingAgents(false);
+        setAgentProgress('');
+        eventSource.close();
+      };
+
+    } catch (error: any) {
+      console.error('Failed to select agents:', error);
+      alert('Failed to select agents. Please try again.');
+      setIsSelectingAgents(false);
+      setAgentProgress('');
+    }
+  };
+
+  const handleApproveAgents = () => {
+    // Agent approved - proceed to conversation creation
+    handleStartConversation();
+  };
+
+  const handleRejectAgents = () => {
+    // User rejected agents - reset selection
+    setSelectedAgents(null);
+    setAgentMetadata(null);
+    setShowAgentSelector(false);
+  };
+
   const handleStartConversation = async () => {
     if (!title.trim()) {
       alert('Please enter a title');
@@ -65,12 +160,20 @@ export default function NewConversationPage() {
     }
 
     try {
-      const result = await createConversationMutation.mutateAsync({
+      // Prepare conversation data
+      const conversationData: any = {
         title: title.trim(),
         initial_prompt: generatedPrompt.trim(),
         tags,
         generate_prompt: false, // Already generated
-      });
+      };
+
+      // Include selected agent IDs if available
+      if (selectedAgents && selectedAgents.length >= 2) {
+        conversationData.agent_ids = selectedAgents.map(agent => agent.agent_id);
+      }
+
+      const result = await createConversationMutation.mutateAsync(conversationData);
 
       // Navigate to live conversation page
       router.push(`/conversation/${result.id}`);
@@ -80,7 +183,7 @@ export default function NewConversationPage() {
     }
   };
 
-  const isLoading = generatePromptMutation.isPending || createConversationMutation.isPending;
+  const isLoading = generatePromptMutation.isPending || isSelectingAgents || createConversationMutation.isPending;
 
   return (
     <div className="min-h-screen bg-slate-900">
@@ -203,29 +306,50 @@ export default function NewConversationPage() {
             </div>
           )}
 
-          {/* Step 5: Start Conversation Button */}
-          {showPromptPreview && (
+          {/* Step 5: Select Agents Button */}
+          {showPromptPreview && !showAgentSelector && (
             <div className="pt-4 fade-in">
+              {isSelectingAgents && agentProgress && (
+                <div className="mb-4 p-4 bg-purple-900/20 border border-purple-700 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <Loader2 className="w-5 h-5 text-purple-400 animate-spin" />
+                    <p className="text-purple-200 font-medium">{agentProgress}</p>
+                  </div>
+                </div>
+              )}
               <button
-                onClick={handleStartConversation}
+                onClick={handleSelectAgents}
                 disabled={!generatedPrompt.trim() || isLoading}
-                className="w-full flex items-center justify-center space-x-2 px-6 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-bold text-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] shadow-lg"
+                className="w-full flex items-center justify-center space-x-2 px-6 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-bold text-lg hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] shadow-lg"
               >
-                {createConversationMutation.isPending ? (
+                {isSelectingAgents ? (
                   <>
                     <Loader2 className="w-6 h-6 animate-spin" />
-                    <span>Starting Conversation...</span>
+                    <span>Selecting Experts...</span>
                   </>
                 ) : (
                   <>
-                    <Send className="w-6 h-6" />
-                    <span>Start Conversation</span>
+                    <Users className="w-6 h-6" />
+                    <span>Select Expert Agents</span>
                   </>
                 )}
               </button>
             </div>
           )}
         </div>
+
+        {/* Step 6: Agent Selector */}
+        {showAgentSelector && selectedAgents && agentMetadata && (
+          <div className="mt-6 fade-in">
+            <AgentSelector
+              agents={selectedAgents}
+              metadata={agentMetadata}
+              onApprove={handleApproveAgents}
+              onReject={handleRejectAgents}
+              isLoading={createConversationMutation.isPending}
+            />
+          </div>
+        )}
 
         {/* Back Link */}
         <div className="text-center mt-6">

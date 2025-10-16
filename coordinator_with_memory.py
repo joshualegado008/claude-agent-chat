@@ -32,6 +32,14 @@ from src.data_models import AgentProfile
 from pathlib import Path
 import asyncio
 
+# Autonomous Search & Research (v0.6.0)
+try:
+    from search_coordinator import SearchCoordinator
+    from datetime_provider import DateTimeProvider
+    SEARCH_AVAILABLE = True
+except ImportError:
+    SEARCH_AVAILABLE = False
+
 
 class ConversationInterruptHandler:
     """Handles Ctrl-C interrupts during conversations with interactive menu."""
@@ -610,6 +618,19 @@ Please respond considering both the previous context and this new direction."""
         except Exception as e:
             DisplayFormatter.print_info(f"💡 Rich context unavailable: {e}")
 
+    # Setup autonomous search if available
+    search_coordinator = None
+    datetime_provider = None
+
+    if SEARCH_AVAILABLE:
+        try:
+            full_config = config.get('full_config', {})
+            search_coordinator = SearchCoordinator(full_config)
+            datetime_provider = DateTimeProvider(full_config.get('datetime', {}))
+            DisplayFormatter.print_success("✨ Autonomous search & research enabled")
+        except Exception as e:
+            DisplayFormatter.print_info(f"💡 Search unavailable: {e}")
+
     # Setup interrupt handler for Ctrl-C
     interrupt_handler = ConversationInterruptHandler(
         metadata_extractor=metadata_extractor,
@@ -754,6 +775,7 @@ Please respond to continue the discussion."""
                 # Save to database
                 conv_manager.add_exchange(
                     agent_name=current_agent.agent_name,
+                    agent_qualification=agent_class,
                     response_content=response_text,
                     thinking_content=None,  # TODO: Capture thinking separately
                     tokens_used=tokens
@@ -767,9 +789,60 @@ Please respond to continue the discussion."""
                 if metadata_extractor and turn % 3 == 0:
                     interrupt_handler.extract_metadata_if_available(conv_manager, turn)
 
+                # Check for autonomous search triggers
+                search_results_text = ""
+                if search_coordinator and datetime_provider:
+                    try:
+                        # Add datetime context
+                        datetime_context = datetime_provider.get_current_datetime()
+
+                        # Check if search should be triggered
+                        # Note: token_info might have 'thinking' if extended thinking was used
+                        thinking_text = token_info.get('thinking', '')
+
+                        should_search, trigger_type, query = search_coordinator.should_search(
+                            response=response_text,
+                            thinking=thinking_text,
+                            turn_number=turn,
+                            agent_name=current_agent.agent_name
+                        )
+
+                        if should_search:
+                            print(f"\n🔍 Search triggered by {current_agent.agent_name} ({trigger_type}): \"{query}\"")
+                            print("   Searching and extracting content...")
+
+                            # Execute search (use asyncio.run for sync context)
+                            search_ctx = asyncio.run(
+                                search_coordinator.execute_search(
+                                    query=query,
+                                    agent_name=current_agent.agent_name,
+                                    turn_number=turn,
+                                    trigger_type=trigger_type
+                                )
+                            )
+
+                            if search_ctx:
+                                # Format results for injection
+                                search_results_text = search_coordinator.format_search_for_context(search_ctx)
+                                print(f"   ✓ Found {len(search_ctx.extracted_content)} sources")
+                                print(f"   Citations: {', '.join(search_ctx.citations_added[:3])}")
+                            else:
+                                print("   ⚠️  Search failed")
+
+                    except Exception as e:
+                        print(f"   ⚠️  Search error: {e}")
+
                 # Prepare message for next agent
                 context = conv_manager.get_context_for_continuation(window_size=5)
-                current_message = f"""{context}
+
+                # Inject datetime context and search results if available
+                additional_context = ""
+                if datetime_provider:
+                    additional_context += f"\n{datetime_provider.get_current_datetime()}\n"
+                if search_results_text:
+                    additional_context += search_results_text
+
+                current_message = f"""{context}{additional_context}
 
 Please respond to continue the discussion."""
 
@@ -797,6 +870,17 @@ Please respond to continue the discussion."""
         if total_cost > 0:
             cost_str = CostCalculator.format_cost(total_cost)
             print(f"Total cost this session: {cost_str}")
+
+        # Show search statistics if search was used
+        if search_coordinator:
+            search_stats = search_coordinator.get_summary_stats()
+            if search_stats['total_searches'] > 0:
+                print(f"\n🔍 Search Statistics:")
+                print(f"   Total searches: {search_stats['total_searches']}")
+                print(f"   Sources cited: {search_stats['citations']['total_sources']}")
+                if search_stats['trigger_breakdown']:
+                    triggers_str = ', '.join(f"{k}={v}" for k, v in search_stats['trigger_breakdown'].items())
+                    print(f"   Triggers: {triggers_str}")
 
         # Finalize
         conv_manager.finalize_conversation(status='completed')

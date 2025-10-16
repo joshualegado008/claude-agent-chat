@@ -139,8 +139,11 @@ class ConversationSummarizer:
 
             return {
                 'summary_data': summary_data,
-                'tokens_used': tokens_used,
-                'generation_cost': generation_cost,
+                'model': self.model,
+                'input_tokens': input_tokens,
+                'output_tokens': output_tokens,
+                'total_tokens': tokens_used,
+                'cost': generation_cost,
                 'generation_time_ms': generation_time_ms
             }
 
@@ -349,7 +352,10 @@ Return ONLY valid JSON, no other text."""
 
         return {
             'summary_data': summary_data,
-            'tokens_used': tokens_used,
-            'generation_cost': generation_cost,
+            'model': self.model,
+            'input_tokens': 0,
+            'output_tokens': 0,
+            'total_tokens': tokens_used,
+            'cost': generation_cost,
             'generation_time_ms': generation_time_ms
         }

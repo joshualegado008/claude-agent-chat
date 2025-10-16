@@ -340,6 +340,43 @@ export default function ConversationPage() {
               </div>
             )}
 
+            {/* Search Activity Indicator */}
+            {isLive && state.searchInProgress && (
+              <div className="text-center py-3 mb-4">
+                <div className="inline-flex items-center space-x-3 px-4 py-2 bg-blue-900/30 border border-blue-700 rounded-lg">
+                  <div className="animate-spin h-4 w-4 border-2 border-blue-400 border-t-transparent rounded-full" />
+                  <p className="text-blue-300 text-sm">
+                    🔍 Search triggered by <span className="font-semibold">{state.searchAgentName}</span>
+                    {state.searchTriggerType && (
+                      <span className="text-blue-400"> ({state.searchTriggerType})</span>
+                    )}
+                  </p>
+                </div>
+                {state.searchQuery && (
+                  <p className="text-xs text-slate-400 mt-2">
+                    Query: &quot;{state.searchQuery}&quot;
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Search Results */}
+            {isLive && !state.searchInProgress && state.searchResults && state.searchResults.sources > 0 && (
+              <div className="text-center py-2 mb-4">
+                <div className="inline-flex items-center space-x-2 px-4 py-2 bg-green-900/30 border border-green-700 rounded-lg">
+                  <span className="text-green-400 text-sm">
+                    ✓ Found {state.searchResults.sources} source{state.searchResults.sources !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                {state.searchResults.citations && state.searchResults.citations.length > 0 && (
+                  <p className="text-xs text-slate-400 mt-2">
+                    Citations: {state.searchResults.citations.slice(0, 3).join(', ')}
+                    {state.searchResults.citations.length > 3 && ` (+${state.searchResults.citations.length - 3} more)`}
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Completed indicator */}
             {isComplete && !showContinueButton && (
               <div className="text-center py-4">

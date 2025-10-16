@@ -137,6 +137,7 @@ class PersistentConversationManager:
         self,
         agent_name: str,
         response_content: str,
+        agent_qualification: Optional[str] = None,
         thinking_content: Optional[str] = None,
         tokens_used: int = 0
     ):
@@ -148,6 +149,7 @@ class PersistentConversationManager:
         exchange = {
             'turn_number': self.current_turn,
             'agent_name': agent_name,
+            'agent_qualification': agent_qualification,
             'thinking_content': thinking_content,
             'response_content': response_content,
             'tokens_used': tokens_used,
@@ -161,6 +163,7 @@ class PersistentConversationManager:
             conversation_id=self.conversation_id,
             turn_number=self.current_turn,
             agent_name=agent_name,
+            agent_qualification=agent_qualification,
             thinking_content=thinking_content,
             response_content=response_content,
             tokens_used=tokens_used
@@ -189,6 +192,7 @@ class PersistentConversationManager:
         exchange = {
             'turn_number': self.current_turn,
             'agent_name': 'USER',
+            'agent_qualification': None,
             'thinking_content': None,
             'response_content': content,
             'tokens_used': 0,  # User injections don't cost tokens
@@ -202,6 +206,7 @@ class PersistentConversationManager:
             conversation_id=self.conversation_id,
             turn_number=self.current_turn,
             agent_name='USER',
+            agent_qualification=None,
             thinking_content=None,
             response_content=content,
             tokens_used=0
@@ -255,8 +260,25 @@ class PersistentConversationManager:
                 content_preview = ex['response_content'][:200]
                 if len(ex['response_content']) > 200:
                     content_preview += "..."
+
+                # Try to get qualification from exchange first, then fall back to metadata
+                agent_qualification = ex.get('agent_qualification')
+
+                # If not in exchange, look up from conversation metadata (for old conversations)
+                if not agent_qualification and self.metadata.get('agents'):
+                    # Find this agent in the metadata agents array
+                    for agent in self.metadata['agents']:
+                        if agent.get('name') == agent_name:
+                            agent_qualification = agent.get('qualification')
+                            break
+
+                # Build display string with qualification if available
+                agent_display = agent_name
+                if agent_qualification:
+                    agent_display = f"{agent_name} ({agent_qualification})"
+
                 context_parts.append(
-                    f"Turn {ex['turn_number']} - {agent_name}: {content_preview}"
+                    f"Turn {ex['turn_number']} - {agent_display}: {content_preview}"
                 )
 
         # Add instructions based on whether there's a user injection

@@ -32,6 +32,7 @@ class ConversationStreamHandler:
         self.conv_manager = None
         self.agent_pool = None
         self.agents = []
+        self.agent_qualifications = {}  # Track agent qualifications by agent name
         self.config = self._load_config()
         self.is_paused = False
         self.should_stop = False
@@ -85,6 +86,7 @@ class ConversationStreamHandler:
                 for agent_data in agents_array:
                     agent_id = agent_data.get('id')
                     agent_name = agent_data.get('name')
+                    agent_qualification = agent_data.get('qualification')
                     if not agent_id or not agent_name:
                         await websocket.send_json({
                             "type": "error",
@@ -94,6 +96,10 @@ class ConversationStreamHandler:
 
                     agent = self.agent_pool.create_agent(agent_id, agent_name)
                     self.agents.append(agent)
+
+                    # Track agent qualification
+                    if agent_qualification:
+                        self.agent_qualifications[agent_name] = agent_qualification
 
                     print(f"✅ Agent {agent_name} (@{agent_id}) is ready")
             else:
@@ -400,6 +406,7 @@ class ConversationStreamHandler:
                 # Save to database
                 self.conv_manager.add_exchange(
                     agent_name=current_agent.agent_name,
+                    agent_qualification=self.agent_qualifications.get(current_agent.agent_name),
                     response_content=response_text,
                     thinking_content=thinking_text if thinking_text else None,
                     tokens_used=tokens
@@ -409,9 +416,87 @@ class ConversationStreamHandler:
                 if turn % 5 == 0:
                     self.conv_manager.save_snapshot()
 
+                # Check for autonomous search triggers
+                search_results_text = ""
+                search_coordinator = self.bridge.get_search_coordinator()
+                datetime_provider = self.bridge.get_datetime_provider()
+
+                if search_coordinator and datetime_provider:
+                    try:
+                        # Check if search should be triggered
+                        should_search, trigger_type, query = search_coordinator.should_search(
+                            response=response_text,
+                            thinking=thinking_text,
+                            turn_number=turn,
+                            agent_name=current_agent.agent_name
+                        )
+
+                        if should_search:
+                            # Notify frontend that search is starting
+                            await websocket.send_json({
+                                "type": "search_triggered",
+                                "turn": turn,
+                                "trigger_type": trigger_type,
+                                "query": query,
+                                "agent_name": current_agent.agent_name
+                            })
+
+                            # Execute search
+                            search_ctx = await search_coordinator.execute_search(
+                                query=query,
+                                agent_name=current_agent.agent_name,
+                                turn_number=turn,
+                                trigger_type=trigger_type
+                            )
+
+                            if search_ctx:
+                                # Format results for injection
+                                search_results_text = search_coordinator.format_search_for_context(search_ctx)
+
+                                # Send search results to frontend
+                                await websocket.send_json({
+                                    "type": "search_complete",
+                                    "turn": turn,
+                                    "query": query,
+                                    "sources_count": len(search_ctx.extracted_content),
+                                    "citations": search_ctx.citations_added,
+                                    "sources": [
+                                        {
+                                            "title": content.title,
+                                            "url": content.url,
+                                            "site": content.site,
+                                            "published_date": content.published_date,
+                                            "excerpt": content.excerpt
+                                        }
+                                        for content in search_ctx.extracted_content
+                                    ]
+                                })
+                            else:
+                                await websocket.send_json({
+                                    "type": "search_failed",
+                                    "turn": turn,
+                                    "query": query
+                                })
+
+                    except Exception as e:
+                        print(f"⚠️  Search error: {e}")
+                        await websocket.send_json({
+                            "type": "search_error",
+                            "turn": turn,
+                            "message": str(e)
+                        })
+
                 # Prepare message for next agent
                 context = self.conv_manager.get_context_for_continuation(window_size=5)
-                current_message = f"""{context}
+
+                # Inject datetime context and search results if available
+                additional_context = ""
+                if datetime_provider:
+                    additional_context += f"\n{datetime_provider.get_current_datetime()}\n"
+                if search_results_text:
+                    additional_context += search_results_text
+
+                current_message = f"""{context}{additional_context}
 
 Please respond to continue the discussion."""
 

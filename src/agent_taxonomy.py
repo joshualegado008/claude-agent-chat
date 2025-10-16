@@ -157,6 +157,15 @@ class AgentTaxonomy:
             keywords={"religion", "religious", "faith", "theology", "interfaith", "spiritual", "sacred", "scripture", "biblical", "religious studies", "belief", "worship"}
         ))
 
+        self._add_class(AgentClass(
+            name="Public Policy",
+            domain=AgentDomain.HUMANITIES,
+            parent="Humanities",
+            description="Government policy, public administration, and urban planning",
+            typical_skills=["policy analysis", "public administration", "urban planning", "rural development", "government", "legislation"],
+            keywords={"policy", "public", "government", "administration", "urban", "rural", "planning", "legislative", "regulation", "governance", "municipal", "civic"}
+        ))
+
         # SCIENCE (4 classes)
         self._add_class(AgentClass(
             name="Physics",
@@ -343,6 +352,16 @@ class AgentTaxonomy:
                 'confidence': 0.9
             }
 
+        # CYBERSECURITY - Check after Software Engineering, before other domains
+        if any(word in description_lower for word in ['cybersecurity', 'security', 'cryptography', 'encryption', 'vulnerability', 'penetration testing', 'hacking', 'threat']):
+            print(f"      → Cybersecurity keywords found")
+            return {
+                'domain': AgentDomain.TECHNOLOGY,
+                'primary_class': 'Cybersecurity',
+                'subclass': 'Technology',
+                'confidence': 0.9
+            }
+
         # LINGUISTICS - Check before Education/Cultural (since they may share keywords)
         if any(word in description_lower for word in ['mandarin', 'cantonese', 'bilingual', 'multilingual']):
             print(f"      → Linguistics keywords found (language/bilingual)")
@@ -508,7 +527,9 @@ class AgentTaxonomy:
                 if skill.lower() in description_lower:
                     score += 5
 
-            if score > 0:
+            # Require minimum score of 10 points (at least 1 keyword match)
+            # This prevents classes from winning on score=0 ties
+            if score >= 10:
                 scores.append((agent_class, score))
 
         # Get best match only if score is meaningful
@@ -516,10 +537,10 @@ class AgentTaxonomy:
             scores.sort(key=lambda x: x[1], reverse=True)
             best_class, best_score = scores[0]
 
-            # Only return if confidence is reasonable
+            # Only return if confidence is reasonable AND score meets minimum
             confidence = min(1.0, best_score / 50.0)
 
-            if confidence >= 0.3:
+            if confidence >= 0.3 and best_score >= 10:
                 print(f"      → Fallback scoring: {best_class.name} (score: {best_score}, confidence: {confidence:.2f})")
                 return {
                     'domain': best_class.domain,

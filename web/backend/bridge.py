@@ -44,6 +44,13 @@ try:
 except ImportError:
     AGENT_COORDINATOR_AVAILABLE = False
 
+try:
+    from search_coordinator import SearchCoordinator
+    from datetime_provider import DateTimeProvider
+    SEARCH_AVAILABLE = True
+except ImportError:
+    SEARCH_AVAILABLE = False
+
 
 class BackendBridge:
     """
@@ -99,6 +106,27 @@ class BackendBridge:
             except Exception as e:
                 print(f"   ❌ Warning: Agent coordinator not available: {e}")
 
+        # Initialize search coordinator for autonomous search
+        self.search_coordinator = None
+        self.datetime_provider = None
+        print(f"   SEARCH_AVAILABLE: {SEARCH_AVAILABLE}")
+
+        if SEARCH_AVAILABLE:
+            try:
+                # Load full config
+                import yaml
+                config_path = parent_dir / 'config.yaml'
+                if config_path.exists():
+                    with open(config_path, 'r') as f:
+                        full_config = yaml.safe_load(f)
+                    self.search_coordinator = SearchCoordinator(full_config)
+                    self.datetime_provider = DateTimeProvider(full_config.get('datetime', {}))
+                    print(f"   ✅ SearchCoordinator & DateTimeProvider initialized successfully")
+                else:
+                    print(f"   ⚠️  config.yaml not found, search unavailable")
+            except Exception as e:
+                print(f"   ❌ Warning: Search coordinator not available: {e}")
+
     def get_database_manager(self) -> DatabaseManager:
         """Get the database manager instance."""
         return self.db
@@ -130,6 +158,14 @@ class BackendBridge:
     def get_agent_coordinator(self):
         """Get agent coordinator for dynamic agent selection."""
         return self.agent_coordinator
+
+    def get_search_coordinator(self):
+        """Get search coordinator for autonomous search."""
+        return self.search_coordinator
+
+    def get_datetime_provider(self):
+        """Get datetime provider for temporal context."""
+        return self.datetime_provider
 
     def close(self):
         """Close database connections."""

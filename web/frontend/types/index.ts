@@ -122,6 +122,8 @@ export type WebSocketMessageType =
   | 'metadata_unavailable'
   | 'tool_use'
   | 'injected'
+  | 'search_triggered'
+  | 'search_complete'
   | 'summary_generation_start'
   | 'summary_generated'
   | 'summary_error'
@@ -142,6 +144,11 @@ export interface WebSocketMessage {
   total_turns?: number;
   total_tokens?: number;
   total_cost?: number;
+  // Search-related fields
+  query?: string;
+  trigger_type?: string;
+  sources_count?: number;
+  citations?: string[];
 }
 
 // WebSocket command types

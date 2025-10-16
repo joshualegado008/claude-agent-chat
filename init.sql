@@ -3,7 +3,7 @@
 -- Conversations table: stores metadata about each conversation
 CREATE TABLE IF NOT EXISTS conversations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    title VARCHAR(255) NOT NULL,
+    title TEXT NOT NULL,
     initial_prompt TEXT NOT NULL,
     agent_a_id VARCHAR(50) NOT NULL,
     agent_a_name VARCHAR(100) NOT NULL,

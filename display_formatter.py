@@ -635,16 +635,22 @@ class DisplayFormatter:
         return response_text, token_info
 
     @staticmethod
-    def print_turn_header(turn_number: int, agent_name: str):
-        """Print header for a conversation turn"""
+    def print_turn_header(turn_number: int, agent_name: str, agent_class: str = None):
+        """Print header for a conversation turn with optional agent class/title"""
         from datetime import datetime
         timestamp = datetime.now().strftime("%H:%M:%S")
 
+        # Build display name with class if provided
+        if agent_class:
+            display_name = f"{agent_class} - {agent_name}"
+        else:
+            display_name = agent_name
+
         print("\n" + "─"*60)
         if COLORS_AVAILABLE:
-            print(f"{Fore.CYAN}{Style.BRIGHT}Turn {turn_number}: {agent_name}{Style.RESET_ALL} [{timestamp}]")
+            print(f"{Fore.CYAN}{Style.BRIGHT}Turn {turn_number}: {display_name}{Style.RESET_ALL} [{timestamp}]")
         else:
-            print(f"Turn {turn_number}: {agent_name} [{timestamp}]")
+            print(f"Turn {turn_number}: {display_name} [{timestamp}]")
         print("─"*60)
 
     @staticmethod

@@ -26,9 +26,18 @@ class MetadataExtractor:
             List of URLs found in text
         """
         # Pattern matches http:// or https:// URLs
+        # Strip trailing punctuation (period, comma, etc.) that's not part of URL
         url_pattern = r'https?://[^\s<>"\'})\]]+'
         urls = re.findall(url_pattern, text)
-        return urls
+
+        # Clean up trailing punctuation from URLs
+        cleaned_urls = []
+        for url in urls:
+            # Strip trailing punctuation marks that are likely sentence endings
+            url = url.rstrip('.,;:!?')
+            cleaned_urls.append(url)
+
+        return cleaned_urls
 
     def __init__(self, api_key: Optional[str] = None):
         """
@@ -148,6 +157,83 @@ Example: {"tags": ["philosophy", "self-reference", "recursion", "meaning"]}"""
             # Fallback: simple keyword extraction
             words = title.lower().split()
             return [w for w in words if len(w) > 3][:max_tags]
+
+    def generate_concise_title(self, user_input: str, max_length: int = 80) -> str:
+        """
+        Generate a concise, descriptive title from potentially long user input.
+
+        This is used to create UI-friendly titles from long prompts that may include
+        URLs, detailed descriptions, or full questions. The generated title captures
+        the semantic essence while being short enough for display.
+
+        Args:
+            user_input: Raw user input (may be long prompt, include URLs, etc.)
+            max_length: Maximum length for generated title (default: 80 characters)
+
+        Returns:
+            Concise, descriptive title suitable for UI display
+
+        Examples:
+            Input: "recently we have seen research on jailbreaking LLM's and context
+                   poisoning, reference: https://icml.cc/virtual/2025/poster/45356..."
+            Output: "LLM jailbreaking and context poisoning research"
+
+            Input: "it is an old myth that videogames are bad for kids..."
+            Output: "Videogames and child development myth"
+        """
+        system_prompt = f"""Generate a concise, descriptive title from the given user input.
+
+The title should:
+- Be {max_length} characters or less
+- Capture the core topic/question
+- Be clear and specific
+- Use title case
+- NOT include URLs or references
+- Be suitable for UI display in a conversation list
+
+Examples:
+Input: "recently we have seen research on jailbreaking LLM's and context poisoning, reference: https://icml.cc/..."
+Output: "LLM jailbreaking and context poisoning"
+
+Input: "it is an old myth that videogames are bad for kids. they can be educational..."
+Output: "Videogames and education for children"
+
+Input: "learning mandarin as a westerner using established learning methods"
+Output: "Learning Mandarin as a westerner"
+
+Return ONLY the title, nothing else."""
+
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"User input: {user_input}"}
+                ],
+                max_tokens=50,
+                temperature=0.3
+            )
+
+            title = response.choices[0].message.content.strip()
+
+            # Remove quotes if present
+            if title.startswith('"') and title.endswith('"'):
+                title = title[1:-1]
+
+            # Ensure max length (truncate if needed)
+            if len(title) > max_length:
+                title = title[:max_length-3] + "..."
+
+            return title
+
+        except Exception as e:
+            print(f"⚠️  Failed to generate concise title: {e}")
+            # Fallback: Take first few words and capitalize
+            words = user_input.split()[:8]
+            fallback_title = ' '.join(words)
+            if len(fallback_title) > max_length:
+                fallback_title = fallback_title[:max_length-3] + "..."
+            return fallback_title
 
     def analyze_conversation_snapshot(
         self,

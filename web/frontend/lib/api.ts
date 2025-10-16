@@ -2,7 +2,7 @@
  * API Client - REST API calls to FastAPI backend
  */
 
-import type { Conversation, SearchResult } from '@/types';
+import type { Conversation, SearchResult, AgentSelectionResponse } from '@/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'http://localhost:8000';
 
@@ -52,6 +52,7 @@ export const api = {
     initial_prompt?: string;
     tags?: string[];
     generate_prompt?: boolean;
+    agent_ids?: string[];
   }): Promise<{
     id: string;
     title: string;
@@ -111,6 +112,16 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title }),
+    });
+    return handleResponse(response);
+  },
+
+  // Dynamic Agent Selection
+  async selectAgents(topic: string): Promise<AgentSelectionResponse> {
+    const response = await fetch(`${API_URL}/api/agents/select`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic }),
     });
     return handleResponse(response);
   },

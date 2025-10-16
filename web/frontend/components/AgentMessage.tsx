@@ -21,7 +21,7 @@ export function AgentMessage({
   showThinking = true,
 }: AgentMessageProps) {
   const agentColor = getAgentColor(agentName);
-  const colorClasses = {
+  const colorClasses: Record<string, string> = {
     nova: 'bg-nova text-white border-nova',
     atlas: 'bg-atlas text-white border-atlas',
     gray: 'bg-gray-500 text-white border-gray-500',
@@ -81,7 +81,7 @@ export function AgentMessage({
  */
 export function TypingIndicator({ agentName }: { agentName: string }) {
   const agentColor = getAgentColor(agentName);
-  const colorClasses = {
+  const colorClasses: Record<string, string> = {
     nova: 'bg-nova',
     atlas: 'bg-atlas',
     gray: 'bg-gray-500',

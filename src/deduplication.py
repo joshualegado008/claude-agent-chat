@@ -89,6 +89,16 @@ class AgentDeduplicationSystem:
 
             classification = self.taxonomy.classify_expertise(expertise_description)
 
+            # Check if classification failed
+            if not classification:
+                return {
+                    'action': 'create_with_warning',
+                    'reason': f"Unable to classify '{expertise_description[:50]}...' into existing taxonomy. Will create with generic classification.",
+                    'similar_agents': [],
+                    'classification': None,
+                    'capacity_info': {'at_capacity': False, 'count': 0, 'max': 10}
+                }
+
         primary_class = classification['primary_class']
         domain = classification['domain']
 

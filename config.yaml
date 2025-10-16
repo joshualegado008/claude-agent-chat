@@ -159,3 +159,47 @@ taxonomy:
   max_agents_per_class: 10
   similarity_threshold: 0.85
   enable_strict_deduplication: true
+
+# ============================================================================
+# AUTONOMOUS SEARCH & RESEARCH (v0.6.0)
+# ============================================================================
+
+# Search configuration
+search:
+  # SearXNG instance (local or public)
+  searxng_url: "https://s.llam.ai"
+
+  # Search engines to use
+  engines:
+    - google
+    - duckduckgo
+    - wikipedia
+
+  # Budget limits (prevent API abuse and cost overruns)
+  limits:
+    max_per_turn: 3           # Max searches per agent turn
+    max_per_conversation: 15  # Max searches per conversation
+    max_per_minute: 10        # Rate limiting
+    cooldown_turns: 1         # Wait N turns between searches
+
+  # Query cache settings (deduplication)
+  cache:
+    enabled: true
+    ttl_minutes: 15           # Cache expiration time
+    cache_dir: ".cache/search"
+
+  # Content extraction settings
+  extraction:
+    timeout: 10  # Seconds to wait for page load
+    user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+
+# Research mode settings
+research:
+  enabled: true
+  max_queries: 8                # Max queries per research session
+  max_queries_per_phase: 3      # Max concurrent queries in research phase
+
+# DateTime provider settings
+datetime:
+  timezone: "UTC"  # Or "America/New_York", "Europe/London", etc.
+  format: "%A, %B %d, %Y, %H:%M:%S %Z"

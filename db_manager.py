@@ -165,9 +165,10 @@ class DatabaseManager:
         conversation_id: str,
         turn_number: int,
         agent_name: str,
-        thinking_content: Optional[str],
-        response_content: str,
-        tokens_used: int
+        agent_qualification: Optional[str] = None,
+        thinking_content: Optional[str] = None,
+        response_content: str = "",
+        tokens_used: int = 0
     ):
         """Add an exchange (agent message) to a conversation."""
 
@@ -175,10 +176,10 @@ class DatabaseManager:
         with self.pg_conn.cursor() as cursor:
             cursor.execute("""
                 INSERT INTO exchanges
-                (conversation_id, turn_number, agent_name, thinking_content, response_content, tokens_used)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                (conversation_id, turn_number, agent_name, agent_qualification, thinking_content, response_content, tokens_used)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
-            """, (conversation_id, turn_number, agent_name, thinking_content, response_content, tokens_used))
+            """, (conversation_id, turn_number, agent_name, agent_qualification, thinking_content, response_content, tokens_used))
 
             exchange_id = cursor.fetchone()[0]
             self.pg_conn.commit()
@@ -197,6 +198,7 @@ class DatabaseManager:
                             "conversation_id": conversation_id,
                             "turn_number": turn_number,
                             "agent_name": agent_name,
+                            "agent_qualification": agent_qualification,
                             "response_content": response_content[:500],  # Store preview
                             "created_at": datetime.now().isoformat()
                         }

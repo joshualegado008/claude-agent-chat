@@ -154,12 +154,15 @@ class AgentProfile:
         )
 
     def display_card(self) -> str:
-        """Beautiful terminal display card with box drawing."""
+        """Beautiful terminal display card with three-tier taxonomy hierarchy."""
         # Truncate long strings for display
         name_display = self.name[:50]
-        domain_display = self.domain.value
-        class_display = self.primary_class
-        spec_display = self.specialization[:43] if len(self.specialization) > 43 else self.specialization
+
+        # Three-Tier Taxonomy Display: Domain > Class > Specialization
+        hierarchy_display = f"{self.domain.value.title()} > {self.primary_class} > {self.specialization}"
+        if len(hierarchy_display) > 56:
+            hierarchy_display = hierarchy_display[:53] + '...'
+
         expertise_display = self.unique_expertise[:46] if len(self.unique_expertise) > 46 else self.unique_expertise
         skills_display = ', '.join(self.core_skills[:3])
         if len(skills_display) > 48:
@@ -169,9 +172,7 @@ class AgentProfile:
         return f"""╔══════════════════════════════════════════════════════════╗
 ║ {self.domain.icon} {name_display:<50} ║
 ╠══════════════════════════════════════════════════════════╣
-║ Domain: {domain_display:<48} ║
-║ Class: {class_display:<49} ║
-║ Specialization: {spec_display:<43} ║
+║ Taxonomy: {hierarchy_display:<47} ║
 ║                                                          ║
 ║ Expertise: {expertise_display:<46} ║
 ║ Skills: {skills_display:<48} ║

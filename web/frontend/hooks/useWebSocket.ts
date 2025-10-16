@@ -33,6 +33,13 @@ export interface ConversationState {
   currentStats: TokenStats | null;
   currentToolUses: string[]; // Tool uses for current turn
 
+  // Search state
+  searchInProgress: boolean;
+  searchQuery: string | null;
+  searchAgentName: string | null;
+  searchTriggerType: string | null;
+  searchResults: { sources: number; citations: string[] } | null;
+
   // Metadata
   metadata: ConversationMetadata | null;
 }
@@ -71,6 +78,11 @@ export function useWebSocket(conversationId: string): UseWebSocketResult {
     currentResponse: '',
     currentStats: null,
     currentToolUses: [],
+    searchInProgress: false,
+    searchQuery: null,
+    searchAgentName: null,
+    searchTriggerType: null,
+    searchResults: null,
     metadata: null,
   });
 
@@ -219,6 +231,30 @@ export function useWebSocket(conversationId: string): UseWebSocketResult {
           setState(prev => ({
             ...prev,
             currentToolUses: [...prev.currentToolUses, message.message || ''],
+          }));
+          break;
+
+        case 'search_triggered':
+          // Autonomous search was triggered
+          setState(prev => ({
+            ...prev,
+            searchInProgress: true,
+            searchQuery: message.query || null,
+            searchAgentName: message.agent_name || null,
+            searchTriggerType: message.trigger_type || null,
+            searchResults: null, // Clear previous results
+          }));
+          break;
+
+        case 'search_complete':
+          // Search completed with results
+          setState(prev => ({
+            ...prev,
+            searchInProgress: false,
+            searchResults: {
+              sources: message.sources_count || 0,
+              citations: message.citations || [],
+            },
           }));
           break;
 
