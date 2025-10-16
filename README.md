@@ -1,10 +1,10 @@
 # Claude Agent Chat
 
-An advanced conversation coordinator for Claude Code agents with intelligent context management.
+A production-ready multi-agent conversation system featuring dynamic agent creation, autonomous web research, and intelligent context management.
 
 ## Overview
 
-This project enables two Claude Code agents to have natural, extended conversations with each other. It implements sophisticated context management techniques inspired by modern LLM best practices:
+Create specialized AI experts on-demand for any topic and watch them engage in evidence-based discussions. The system dynamically generates domain experts, conducts autonomous web research, and manages sophisticated multi-agent conversations with full database persistence.
 
 - **Multi-tier Memory**: Immediate context (last N exchanges) + checkpoints + summarized history
 - **Smart Context Building**: Optimizes token usage while preserving conversation coherence
@@ -82,7 +82,7 @@ This project enables two Claude Code agents to have natural, extended conversati
 
 👉 **[See FEATURES.md for full guide](FEATURES.md)**
 
-### 🔧 Geeky Technical Stats Mode (NEW!)
+### 🔧 Geeky Technical Stats Mode
 - **Comprehensive Token Breakdown**: See input (context + prompt), output, and thinking tokens separately with individual costs
 - **Context Window Analysis**: View total exchanges, window size, character/token counts, and which specific turns are referenced
 - **Session Analytics**: Real-time tracking of current turn, total tokens, average per turn, and projected totals
@@ -91,7 +91,7 @@ This project enables two Claude Code agents to have natural, extended conversati
 
 Perfect for system engineers who want complete transparency into token usage, context management, and cost accumulation!
 
-### 🤖 Dynamic Multi-Agent System (NEW!)
+### 🤖 Dynamic Multi-Agent System
 - **On-Demand Agent Creation**: System analyzes conversation topic and creates specialized expert agents automatically
 - **Multi-Agent Conversations (3+ Agents)**: Conversations now support any number of agents in round-robin rotation, not just 2
 - **Round-Robin Turn-Taking**: Agents rotate seamlessly (Agent1 → Agent2 → Agent3 → Agent1...) for multi-perspective discussions
@@ -117,7 +117,7 @@ Conversation proceeds with specialized experts
 Rate agents after completion → Agents gain rank points
 ```
 
-### 🔍 Autonomous Search & Research (NEW!)
+### 🔍 Autonomous Search & Research
 **Transform theoretical debates into evidence-based discussions with real-time web research**
 
 - **Truly Autonomous**: Agents don't need explicit tool commands - search triggers naturally from their thinking
@@ -138,9 +138,9 @@ Rate agents after completion → Agents gain rank points
 - **WebSocket Streaming**: Real-time search progress visible in web UI
 
 **Why This Is Transformative:**
-- **Evidence-Based Debates**: Atlas (pragmatic analyst) can fact-check Nova's claims in real-time
+- **Evidence-Based Debates**: Specialized agents can fact-check each other's claims in real-time
 - **Ground Abstract Discussions**: Replace "I think..." with "According to [source]..."
-- **Research Loops**: Nova proposes → Atlas searches counter-evidence → Nova refines
+- **Research Loops**: One agent proposes → Another searches counter-evidence → First refines based on findings
 - **Beyond Training Cutoff**: Discuss current events, breaking news, emerging technologies
 - **Emergent Behavior**: Agents learn and adapt during conversations
 
@@ -181,7 +181,7 @@ This makes the system **genuinely useful**, not just entertaining - agents condu
 
 👉 **[See search_coordinator.py for implementation](search_coordinator.py)**
 
-### 👤 Agent Qualification Display (NEW!)
+### 👤 Agent Qualification Display
 - **Visible Credentials**: Agents see each other's qualifications in conversation context
 - **UI Display**: Agent names show qualifications in header (e.g., "Oscar Solis - Biology ↔ Dr. Michael Leach - Public Policy")
 - **Context Awareness**: Agents know who they're speaking to - no more guessing
@@ -199,7 +199,7 @@ This makes the system **genuinely useful**, not just entertaining - agents condu
 
 👉 **[See SETUP_DATABASE.md for database setup](SETUP_DATABASE.md)**
 
-### 🌐 Modern Web Interface (NEW!)
+### 🌐 Modern Web Interface
 - **React + Next.js Frontend**: Beautiful dark-mode UI with real-time streaming
 - **FastAPI Backend**: RESTful API + WebSocket support for live conversations
 - **Dual Interface System**: Terminal and web work simultaneously, sharing the same database
@@ -249,7 +249,7 @@ open http://localhost:3000
 
 Both interfaces can run at the same time - conversations created in the terminal appear in the web UI and vice versa!
 
-### 📁 Unified Conversation Management (NEW!)
+### 📁 Unified Conversation Management
 - **Streamlined Menu**: Simplified interface from 7 to 6 main options
 - **Integrated Actions**: View, continue, and delete conversations from single menu flow
 - **Safety Features**: Multi-step confirmation for destructive operations
@@ -261,9 +261,19 @@ Both interfaces can run at the same time - conversations created in the terminal
 - **Smart Summarization**: Condenses older history when threshold reached
 - **Token Optimization**: Tracks and manages context window size
 
-### Agent Personalities
-- **Nova** (@agent_a): Optimistic visionary who explores possibilities
-- **Atlas** (@agent_b): Pragmatic analyst who questions assumptions
+### Dynamic Agent Creation
+
+Agents are created on-demand based on conversation topics. The system:
+- Analyzes the topic to identify required expertise
+- Creates 2-3 specialized agents with relevant qualifications
+- Assigns domain classifications (STEM, Humanities, Social Sciences, etc.)
+- Rates agent performance and promotes them through 6 ranks (NOVICE → GOD_TIER)
+
+**Example agents created:**
+- **Dr. Ashurbanipal Chen** - Ancient Near East expert for Mesopotamian agriculture discussions
+- **Dr. Marcus Ashford** - Cardiology specialist for medical debates
+- **Oscar Solis** - Biology researcher for antibiotic resistance analysis
+- **Prof. Sarah Martinez** - Climate scientist for environmental policy discussions
 
 ### Output & Logging
 - Color-coded terminal display with thinking visualization
@@ -333,31 +343,30 @@ You **ONLY** need to:
 ### What Happens Behind the Scenes
 
 ```
-┌─────────────────────────────────────────────────┐
-│  YOUR TERMINAL (the only one you see)          │
-│                                                 │
-│  $ python coordinator.py                        │
-│  ↓                                              │
-│  Coordinator spawns:                            │
-│    ├─ Agent Process 1 (Nova)   ← subprocess    │
-│    └─ Agent Process 2 (Atlas)  ← subprocess    │
-│                                                 │
-│  Coordinator orchestrates:                      │
-│    1. Sends message to Nova                     │
-│    2. Receives Nova's response                  │
-│    3. Sends to Atlas (with context)             │
-│    4. Receives Atlas's response                 │
-│    5. Repeat...                                 │
-│                                                 │
-│  All displayed in YOUR terminal with colors     │
-└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│  YOUR TERMINAL (the only one you see)                       │
+│                                                              │
+│  $ python coordinator.py                                     │
+│  ↓                                                           │
+│  System analyzes your topic and creates specialized agents: │
+│    ├─ Agent 1: Domain Expert    ← dynamically created       │
+│    ├─ Agent 2: Related Specialist ← dynamically created     │
+│    └─ Agent 3: Complementary Expert ← (if needed)           │
+│                                                              │
+│  Coordinator orchestrates:                                   │
+│    1. Sends message to Agent 1                               │
+│    2. Receives Agent 1's response                            │
+│    3. Sends to Agent 2 (with context + qualification)        │
+│    4. Receives Agent 2's response                            │
+│    5. Repeat in round-robin...                               │
+│                                                              │
+│  All displayed in YOUR terminal with colors                  │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-The coordinator script uses `subprocess` to call:
-- `claude code chat @agent_a` (behind the scenes)
-- `claude code chat @agent_b` (behind the scenes)
+The system dynamically creates agents based on your conversation topic, determining the required expertise and creating specialized agents on-demand.
 
-You never see these subprocesses - you just see the formatted conversation output.
+You never see the agent creation process - you just see the formatted conversation output with qualified experts discussing the topic.
 
 ### Your First Run - What You'll See
 
@@ -373,14 +382,15 @@ $ python coordinator.py
 ╔══════════════════════════════════════════════════════════════╗
 ║         🤖 Agent-to-Agent Conversation Coordinator 🤖        ║
 ║                                                              ║
-║  Two Claude agents engaging in intelligent discussion        ║
+║  Specialized AI experts engaging in intelligent discussion   ║
 ╚══════════════════════════════════════════════════════════════╝
 
 ============================================================
 Agents Participating:
 ============================================================
-  ● Nova (@agent_a)
-  ● Atlas (@agent_b)
+  ● Dr. Sarah Martinez - Climate Science
+  ● Prof. Michael Chen - Economics
+  ● Dr. Alexandra Torres - Public Policy
 ============================================================
 ```
 
@@ -391,16 +401,17 @@ Starting Conversation
 ────────────────────────────────────────────────────────────
 
 Initial Prompt:
-  What do you think about the future of AI agents
-  working together autonomously?
+  Climate change policy trade-offs between economic
+  growth and environmental protection
 
 Configuration:
   Max turns: 20
 ────────────────────────────────────────────────────────────
 
-ℹ️  Validating agent availability...
-  Checking Nova (@agent_a)...
-  Checking Atlas (@agent_b)...
+ℹ️  Creating specialized agents for this topic...
+  ✓ Created Dr. Sarah Martinez (Climate Science)
+  ✓ Created Prof. Michael Chen (Economics)
+  ✓ Created Dr. Alexandra Torres (Public Policy)
 
 Start conversation? [Y/n]:
 ```
@@ -412,32 +423,32 @@ Just hit Enter (or type 'y'). The conversation begins automatically!
 **Step 5: Watch the conversation unfold**
 ```
 ────────────────────────────────────────────────────────────
-Turn 0: Nova [14:32:15]
+Turn 0: Dr. Sarah Martinez (Climate Science) [14:32:15]
 ────────────────────────────────────────────────────────────
 
-ℹ️  Nova is thinking...
+ℹ️  Dr. Sarah Martinez is thinking...
 
-  <Nova's response appears here in CYAN>
-  (Optimistic perspective on AI agent collaboration)
+  <Response appears here in CYAN>
+  (Climate scientist perspective on environmental impacts)
 
   Tokens: +245 (Total: 245)
 
 ────────────────────────────────────────────────────────────
-Turn 1: Atlas [14:32:22]
+Turn 1: Prof. Michael Chen (Economics) [14:32:22]
 ────────────────────────────────────────────────────────────
 
-ℹ️  Atlas is thinking...
+ℹ️  Prof. Michael Chen is thinking...
 
-  <Atlas's response appears here in YELLOW>
-  (Pragmatic analysis of Nova's points)
+  <Response appears here in YELLOW>
+  (Economic analysis of policy trade-offs)
 
   Tokens: +189 (Total: 434)
 
 ────────────────────────────────────────────────────────────
-Turn 2: Nova [14:32:28]
+Turn 2: Dr. Alexandra Torres (Public Policy) [14:32:28]
 ────────────────────────────────────────────────────────────
 
-  <Conversation continues...>
+  <Conversation continues with third agent perspective...>
 ```
 
 **Step 6: Conversation completes**
@@ -548,8 +559,8 @@ conversation:
   max_turns: 20              # Maximum exchanges
   initial_prompt: "..."      # Default starting question
   turn_delay: 1.0           # Seconds between turns
-  show_thinking: true        # Show extended thinking (NEW!)
-  thinking_budget: 5000      # Thinking token budget (NEW!)
+  show_thinking: true        # Show extended thinking
+  thinking_budget: 5000      # Thinking token budget
 
 context:
   immediate_exchanges: 3     # Always keep last N exchanges
@@ -561,7 +572,7 @@ context:
 display:
   mode: "single"            # "single" or "dual" terminal
   show_tokens: true         # Display token usage
-  stats_mode: "geeky"       # "simple", "detailed", or "geeky" (NEW!)
+  stats_mode: "geeky"       # "simple", "detailed", or "geeky"
   use_colors: true          # Color-coded output
   clear_screen: false       # Clear between turns
 
@@ -576,10 +587,11 @@ logging:
 claude-agent-chat/
 ├── .claude/
 │   └── agents/
-│       ├── agent_a.md                    # Nova (Optimistic Visionary)
-│       ├── agent_b.md                    # Atlas (Pragmatic Analyst)
-│       └── dynamic/                      # NEW: Dynamically created agents
+│       ├── agent_a.md                    # Legacy static agent (optional)
+│       ├── agent_b.md                    # Legacy static agent (optional)
+│       └── dynamic/                      # Dynamically created agents
 │           ├── dynamic-a551f2bec1c4.md   # Example: Dr. Marcus Ashford (Cardiology)
+│           ├── dynamic-7b3fdfca864f.md   # Example: Oscar Solis (Biology)
 │           └── ...                       # More dynamic agents
 ├── web/                                  # NEW: Web Interface
 │   ├── frontend/                         # Next.js React app
@@ -707,7 +719,7 @@ python coordinator.py \
   --max-turns 15
 ```
 
-Nova will explore optimistic possibilities while Atlas challenges with practical constraints.
+System creates domain experts to explore different perspectives on the question.
 
 ### Example 2: Philosophy Debate
 
@@ -717,7 +729,7 @@ python coordinator.py \
   --max-turns 20
 ```
 
-Watch the agents build on each other's ideas across multiple exchanges.
+System creates philosophers and neuroscientists to explore this deep question from multiple angles.
 
 ### Example 3: Short Focused Chat
 
@@ -727,20 +739,20 @@ python coordinator.py \
   --max-turns 6
 ```
 
-Quick back-and-forth on a specific topic.
+System creates software engineering experts for a focused technical discussion.
 
 ## Customizing Agents
 
-Edit `.claude/agents/agent_a.md` or `agent_b.md` to change personalities:
+The system dynamically creates agents based on conversation topics, but you can optionally create static agents by editing `.claude/agents/agent_a.md` or `agent_b.md`:
 
 ```markdown
 # Your Agent Name
 
 You are [persona description]
 
-## Personality
-- Trait 1
-- Trait 2
+## Expertise
+- Domain 1
+- Domain 2
 
 ## Conversation Style
 - Style point 1
@@ -749,6 +761,8 @@ You are [persona description]
 ## Your Role
 [Role description for multi-agent conversations]
 ```
+
+**Note**: Dynamic agent creation is the default and recommended approach. Static agents are primarily for backwards compatibility.
 
 ## Output Files
 
