@@ -1,0 +1,109 @@
+services:
+  # Tailscale VPN sidecar for secure networking
+  chorus-on-hstgr:
+    image: tailscale/tailscale:latest
+    hostname: chorus-on-hstgr
+    environment:
+      - TS_EXTRA_ARGS=--auth-key file:/run/secrets/tsauthkey
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=false
+    volumes:
+      - ${PWD}/tailscale-state:/var/lib/tailscale
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - net_admin
+    restart: unless-stopped
+    ports:
+      - "3000:3000"  # Frontend
+      - "8000:8000"  # Backend API + WebSocket
+    secrets:
+      - tsauthkey
+
+  # PostgreSQL database
+  postgres:
+    image: postgres:16-alpine
+    container_name: chorus-postgres
+    environment:
+      POSTGRES_DB: agent_conversations
+      POSTGRES_USER: agent_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agent_pass_secure}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./metadata_schema.sql:/docker-entrypoint-initdb.d/02-metadata.sql
+    network_mode: service:chorus-on-hstgr
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agent_user -d agent_conversations"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    depends_on:
+      - chorus-on-hstgr
+
+  # Qdrant vector database
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: chorus-qdrant
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__GRPC_PORT=6334
+    network_mode: service:chorus-on-hstgr
+    restart: unless-stopped
+    depends_on:
+      - chorus-on-hstgr
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: .
+      dockerfile: web/backend/Dockerfile
+    container_name: chorus-backend
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_HOST=localhost
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=agent_conversations
+      - POSTGRES_USER=agent_user
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-agent_pass_secure}
+      - QDRANT_HOST=localhost
+      - QDRANT_PORT=6333
+    network_mode: service:chorus-on-hstgr
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    restart: unless-stopped
+
+  # Next.js Frontend
+  frontend:
+    build:
+      context: web/frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://chorus.llam.ai
+        NEXT_PUBLIC_WS_URL: wss://chorus.llam.ai
+    container_name: chorus-frontend
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=https://chorus.llam.ai
+      - NEXT_PUBLIC_WS_URL=wss://chorus.llam.ai
+    network_mode: service:chorus-on-hstgr
+    depends_on:
+      - chorus-on-hstgr
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  qdrant_data:
+    driver: local
+
+secrets:
+  tsauthkey:
+    file: ~/.config/tsauthkey

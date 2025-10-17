@@ -2,17 +2,45 @@
  * Loading spinner component
  */
 
-export function Loading({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
+import Image from 'next/image';
+
+export function Loading({
+  size = 'md',
+  useLogo = false
+}: {
+  size?: 'sm' | 'md' | 'lg';
+  useLogo?: boolean;
+}) {
   const sizeClasses = {
     sm: 'h-4 w-4',
     md: 'h-8 w-8',
     lg: 'h-12 w-12',
   };
 
+  const logoSizes = {
+    sm: 16,
+    md: 32,
+    lg: 48,
+  };
+
+  if (useLogo) {
+    return (
+      <div className="flex items-center justify-center">
+        <Image
+          src="/images/claude-chorus-icon-256.png"
+          alt="Loading..."
+          width={logoSizes[size]}
+          height={logoSizes[size]}
+          className="animate-pulse"
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center justify-center">
       <div
-        className={`animate-spin rounded-full border-4 border-gray-300 border-t-blue-600 ${sizeClasses[size]}`}
+        className={`animate-spin rounded-full border-4 border-slate-700 border-t-chorus-primary ${sizeClasses[size]}`}
       />
     </div>
   );

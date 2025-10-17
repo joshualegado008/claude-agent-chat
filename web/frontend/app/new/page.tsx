@@ -195,7 +195,7 @@ export default function NewConversationPage() {
       <div className="container mx-auto px-4 py-12 max-w-3xl">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-chorus-accent to-chorus-primary bg-clip-text text-transparent">
             Start a New Conversation
           </h1>
           <p className="text-slate-400">
@@ -215,7 +215,7 @@ export default function NewConversationPage() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g., The Future of AI in Healthcare"
-              className="w-full px-4 py-3 border border-slate-600 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-slate-700 text-slate-100 placeholder-slate-400"
+              className="w-full px-4 py-3 border border-slate-600 rounded-lg focus:ring-2 focus:ring-chorus-primary focus:border-transparent bg-slate-700 text-slate-100 placeholder-slate-400"
               disabled={isLoading}
             />
           </div>
@@ -225,7 +225,7 @@ export default function NewConversationPage() {
             <button
               onClick={handleGeneratePrompt}
               disabled={!title.trim() || isLoading}
-              className="w-full flex items-center justify-center space-x-2 px-6 py-4 bg-gradient-to-r from-cyan-600 to-purple-600 text-white rounded-lg font-medium hover:from-cyan-500 hover:to-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02]"
+              className="w-full flex items-center justify-center space-x-2 px-6 py-4 bg-gradient-to-r from-chorus-secondary to-chorus-primary text-white rounded-lg font-medium hover:from-chorus-primary hover:to-chorus-accent disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02]"
             >
               {generatePromptMutation.isPending ? (
                 <>
@@ -251,7 +251,7 @@ export default function NewConversationPage() {
                 value={generatedPrompt}
                 onChange={(e) => setGeneratedPrompt(e.target.value)}
                 rows={6}
-                className="w-full px-4 py-3 border border-slate-600 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-slate-700 text-slate-100 resize-none"
+                className="w-full px-4 py-3 border border-slate-600 rounded-lg focus:ring-2 focus:ring-chorus-primary focus:border-transparent bg-slate-700 text-slate-100 resize-none"
                 disabled={isLoading}
               />
               <p className="text-xs text-slate-400">
@@ -273,7 +273,7 @@ export default function NewConversationPage() {
                   {tags.map((tag) => (
                     <span
                       key={tag}
-                      className="inline-flex items-center space-x-1 px-3 py-1 bg-cyan-900/50 text-cyan-300 rounded-full text-sm border border-cyan-700"
+                      className="inline-flex items-center space-x-1 px-3 py-1 bg-chorus-secondary/30 text-chorus-accent rounded-full text-sm border border-chorus-secondary"
                     >
                       <Tag className="w-3 h-3" />
                       <span>{tag}</span>
@@ -297,7 +297,7 @@ export default function NewConversationPage() {
                   onChange={(e) => setNewTag(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
                   placeholder="Add a tag..."
-                  className="flex-1 px-3 py-2 border border-slate-600 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-slate-700 text-slate-100 placeholder-slate-400 text-sm"
+                  className="flex-1 px-3 py-2 border border-slate-600 rounded-lg focus:ring-2 focus:ring-chorus-primary focus:border-transparent bg-slate-700 text-slate-100 placeholder-slate-400 text-sm"
                   disabled={isLoading}
                 />
                 <button
@@ -325,7 +325,7 @@ export default function NewConversationPage() {
               <button
                 onClick={handleSelectAgents}
                 disabled={!generatedPrompt.trim() || isLoading}
-                className="w-full flex items-center justify-center space-x-2 px-6 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-bold text-lg hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] shadow-lg"
+                className="w-full flex items-center justify-center space-x-2 px-6 py-4 bg-gradient-to-r from-chorus-secondary to-chorus-primary text-white rounded-lg font-bold text-lg hover:from-chorus-primary hover:to-chorus-accent disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] shadow-lg"
               >
                 {isSelectingAgents ? (
                   <>

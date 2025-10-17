@@ -25,7 +25,7 @@ export function AgentSelector({
       {/* Header */}
       <div className="mb-6">
         <h2 className="text-2xl font-bold mb-2 flex items-center space-x-2">
-          <Bot className="w-6 h-6 text-cyan-400" />
+          <Bot className="w-6 h-6 text-chorus-primary" />
           <span>Selected Agents for This Conversation</span>
         </h2>
         <p className="text-slate-400 text-sm">
@@ -35,12 +35,12 @@ export function AgentSelector({
 
       {/* Refined Topic */}
       {metadata.refined_topic && (
-        <div className="mb-6 p-4 bg-purple-900/20 border border-purple-700 rounded-lg">
+        <div className="mb-6 p-4 bg-chorus-secondary/20 border border-chorus-secondary rounded-lg">
           <div className="flex items-center space-x-2 mb-2">
-            <Sparkles className="w-4 h-4 text-purple-400" />
-            <span className="text-sm font-medium text-purple-300">Enhanced Topic</span>
+            <Sparkles className="w-4 h-4 text-chorus-primary" />
+            <span className="text-sm font-medium text-chorus-accent">Enhanced Topic</span>
           </div>
-          <p className="text-purple-100 italic">"{metadata.refined_topic}"</p>
+          <p className="text-chorus-light italic">"{metadata.refined_topic}"</p>
         </div>
       )}
 
@@ -49,7 +49,7 @@ export function AgentSelector({
         {agents.map((agent, index) => (
           <div
             key={agent.agent_id}
-            className="bg-slate-700/50 border border-slate-600 rounded-lg p-4 hover:border-cyan-500 transition-colors"
+            className="bg-slate-700/50 border border-slate-600 rounded-lg p-4 hover:border-chorus-primary transition-colors"
           >
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center space-x-3">
@@ -87,7 +87,7 @@ export function AgentSelector({
                 {agent.core_skills.slice(0, 5).map((skill) => (
                   <span
                     key={skill}
-                    className="px-2 py-1 bg-cyan-900/50 text-cyan-300 rounded text-xs border border-cyan-700"
+                    className="px-2 py-1 bg-chorus-secondary/30 text-chorus-accent rounded text-xs border border-chorus-secondary"
                   >
                     {skill}
                   </span>
@@ -138,7 +138,7 @@ export function AgentSelector({
         <button
           onClick={onApprove}
           disabled={isLoading}
-          className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-cyan-600 to-purple-600 text-white rounded-lg font-medium hover:from-cyan-500 hover:to-purple-500 transition-all duration-200 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+          className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-chorus-secondary to-chorus-primary text-white rounded-lg font-medium hover:from-chorus-primary hover:to-chorus-accent transition-all duration-200 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
         >
           <Check className="w-5 h-5" />
           <span>{isLoading ? 'Creating...' : 'Approve & Start Conversation'}</span>

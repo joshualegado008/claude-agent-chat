@@ -9,6 +9,14 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        chorus: {
+          primary: '#f4b183',    // warm orange/peach
+          secondary: '#c87137',  // darker orange
+          accent: '#ffcc99',     // light peach
+          dark: '#2d2d2d',       // very dark gray
+          medium: '#5d5d5d',     // medium gray
+          light: '#f0f0f0',      // light text
+        },
         nova: {
           light: '#22d3ee',  // Brighter cyan for dark mode
           DEFAULT: '#06b6d4',

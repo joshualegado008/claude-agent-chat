@@ -1,0 +1,55 @@
+# Git
+.git
+.gitignore
+
+# Docker
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info
+dist
+build
+.venv
+venv
+env
+
+# Node
+node_modules
+npm-debug.log
+.next
+out
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env files
+.env.local
+.env.*.local
+
+# Data and cache
+data/
+.cache/
+tailscale-state/
+*.db
+*.sqlite
+
+# Backups
+backup/
+*.backup

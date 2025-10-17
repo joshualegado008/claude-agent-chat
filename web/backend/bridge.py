@@ -60,7 +60,16 @@ class BackendBridge:
 
     def __init__(self):
         """Initialize database and settings."""
-        self.db = DatabaseManager()
+        import os
+        self.db = DatabaseManager(
+            postgres_host=os.getenv('POSTGRES_HOST', 'localhost'),
+            postgres_port=int(os.getenv('POSTGRES_PORT', '5432')),
+            postgres_db=os.getenv('POSTGRES_DB', 'agent_conversations'),
+            postgres_user=os.getenv('POSTGRES_USER', 'agent_user'),
+            postgres_password=os.getenv('POSTGRES_PASSWORD', 'agent_pass_local'),
+            qdrant_host=os.getenv('QDRANT_HOST', 'localhost'),
+            qdrant_port=int(os.getenv('QDRANT_PORT', '6333'))
+        )
         self.settings = get_settings()
 
         # Initialize metadata extractor if OpenAI key available

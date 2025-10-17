@@ -13,8 +13,8 @@ import json
 import asyncio
 import traceback
 
-from bridge import get_bridge
-from websocket_handler import ConversationStreamHandler
+from web.backend.bridge import get_bridge
+from web.backend.websocket_handler import ConversationStreamHandler
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -23,10 +23,14 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS middleware for development (adjust for production)
+# CORS middleware for development and production
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://chorus.llam.ai"  # Production domain
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

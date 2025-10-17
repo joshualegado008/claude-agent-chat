@@ -627,8 +627,8 @@ export default function ConversationPage() {
                   </h4>
                   <div className="space-y-3 text-sm">
                     {Object.entries(historicalStats.perAgentStats).map(([agentName, stats]) => (
-                      <div key={agentName} className="border-l-2 border-cyan-500 pl-3">
-                        <div className="font-medium text-cyan-400 mb-1">{agentName}</div>
+                      <div key={agentName} className="border-l-2 border-chorus-primary pl-3">
+                        <div className="font-medium text-chorus-accent mb-1">{agentName}</div>
                         <div className="flex justify-between text-xs">
                           <span>Tokens:</span>
                           <span className="font-mono">{formatNumber(stats.tokens)}</span>

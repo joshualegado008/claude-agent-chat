@@ -78,9 +78,9 @@
   }
 }
 
-/* Selection color - pleasant cyan */
+/* Selection color - pleasant orange/peach */
 ::selection {
-  @apply bg-cyan-500/30 text-cyan-100;
+  @apply bg-chorus-primary/30 text-chorus-light;
 }
 
 /* Code blocks */
@@ -94,5 +94,5 @@ code {
 
 /* Links */
 a {
-  @apply text-cyan-400 hover:text-cyan-300 transition-colors;
+  @apply text-chorus-primary hover:text-chorus-accent transition-colors;
 }

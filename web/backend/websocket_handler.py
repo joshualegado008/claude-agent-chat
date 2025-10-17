@@ -10,7 +10,7 @@ from fastapi import WebSocket
 import yaml
 from pathlib import Path
 
-from bridge import get_bridge
+from web.backend.bridge import get_bridge
 from cost_calculator import CostCalculator
 
 
