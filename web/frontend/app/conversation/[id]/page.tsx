@@ -16,6 +16,7 @@ import { LoadingScreen } from '@/components/Loading';
 import { PromptEvolutionPanel } from '@/components/PromptEvolutionPanel';
 import { formatNumber, formatCost } from '@/lib/utils';
 import { calculateHistoricalStats } from '@/lib/costCalculator';
+import { api } from '@/lib/api';
 import type { ConversationSummary } from '@/types';
 
 export default function ConversationPage() {
@@ -120,14 +121,9 @@ export default function ConversationPage() {
 
     setIsLoadingSummary(true);
     try {
-      const response = await fetch(`http://localhost:8000/api/conversations/${conversationId}/summary`);
-      if (response.ok) {
-        const data = await response.json();
-        setSummaryData(data);
-        setShowSummary(true);
-      } else {
-        console.error('Failed to fetch summary:', response.statusText);
-      }
+      const data = await api.getSummary(conversationId);
+      setSummaryData(data);
+      setShowSummary(true);
     } catch (error) {
       console.error('Error fetching summary:', error);
     } finally {

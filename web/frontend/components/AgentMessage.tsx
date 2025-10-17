@@ -62,7 +62,7 @@ export function AgentMessage({
       <div className="ml-9">
         <div className={`p-4 rounded-lg border-2 ${
           agentColor === 'nova'
-            ? 'bg-cyan-50 dark:bg-cyan-900/20 border-nova-light'
+            ? 'bg-chorus-secondary/30 dark:bg-chorus-secondary/30/20 border-nova-light'
             : agentColor === 'atlas'
             ? 'bg-amber-50 dark:bg-amber-900/20 border-atlas-light'
             : 'bg-gray-50 dark:bg-gray-800 border-gray-300'

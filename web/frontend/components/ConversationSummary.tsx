@@ -41,7 +41,7 @@ function CollapsibleSection({ title, icon, children, defaultOpen = false }: Sect
         className="w-full flex items-center justify-between p-4 bg-slate-800 hover:bg-slate-750 transition-colors"
       >
         <div className="flex items-center space-x-3">
-          <div className="text-cyan-400">{icon}</div>
+          <div className="text-chorus-accent">{icon}</div>
           <h3 className="text-lg font-semibold">{title}</h3>
         </div>
         {isOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
@@ -75,11 +75,11 @@ export function ConversationSummaryDisplay({ summary, conversationTitle, onClose
           <p className="text-slate-400">{conversationTitle}</p>
 
           {/* TL;DR Banner */}
-          <div className="mt-6 p-6 bg-gradient-to-r from-cyan-900/30 to-blue-900/30 border border-cyan-700/50 rounded-lg">
+          <div className="mt-6 p-6 bg-gradient-to-r from-chorus-secondary/30 to-chorus-primary/30 border border-chorus-primary/50 rounded-lg">
             <div className="flex items-start space-x-3">
-              <Sparkles className="w-6 h-6 text-cyan-400 flex-shrink-0 mt-1" />
+              <Sparkles className="w-6 h-6 text-chorus-accent flex-shrink-0 mt-1" />
               <div>
-                <h2 className="text-xl font-bold mb-2 text-cyan-300">TL;DR</h2>
+                <h2 className="text-xl font-bold mb-2 text-chorus-accent">TL;DR</h2>
                 <p className="text-lg leading-relaxed">{summaryData.tldr}</p>
               </div>
             </div>
@@ -107,9 +107,9 @@ export function ConversationSummaryDisplay({ summary, conversationTitle, onClose
                 {summaryData.key_insights.map((insight, idx) => (
                   <div
                     key={idx}
-                    className="border-l-4 border-cyan-500 pl-4 py-2 bg-slate-800/50 rounded-r"
+                    className="border-l-4 border-chorus-primary pl-4 py-2 bg-slate-800/50 rounded-r"
                   >
-                    <h4 className="font-semibold text-cyan-300 mb-2">{insight.insight}</h4>
+                    <h4 className="font-semibold text-chorus-accent mb-2">{insight.insight}</h4>
                     <p className="text-sm text-slate-300 mb-2">{insight.significance}</p>
                     {insight.emerged_at_turn && (
                       <span className="text-xs text-slate-500">Emerged at turn {insight.emerged_at_turn}</span>
@@ -130,7 +130,7 @@ export function ConversationSummaryDisplay({ summary, conversationTitle, onClose
                 {summaryData.technical_glossary.map((term, idx) => (
                   <div key={idx} className="border-b border-slate-700 last:border-0 pb-4 last:pb-0">
                     <div className="flex items-start justify-between mb-2">
-                      <h4 className="font-semibold text-cyan-400 text-lg">{term.term}</h4>
+                      <h4 className="font-semibold text-chorus-accent text-lg">{term.term}</h4>
                       <span className="text-xs px-2 py-1 bg-slate-700 rounded">
                         {term.difficulty}
                       </span>
@@ -161,7 +161,7 @@ export function ConversationSummaryDisplay({ summary, conversationTitle, onClose
                     className="p-4 bg-slate-800 rounded-lg border border-slate-700"
                   >
                     <div className="flex items-start justify-between mb-2">
-                      <h4 className="font-semibold text-lg text-cyan-300">{word.word}</h4>
+                      <h4 className="font-semibold text-lg text-chorus-accent">{word.word}</h4>
                       {word.pronunciation && (
                         <span className="text-xs text-slate-500 italic">{word.pronunciation}</span>
                       )}
@@ -173,7 +173,7 @@ export function ConversationSummaryDisplay({ summary, conversationTitle, onClose
                       </p>
                     )}
                     {word.why_interesting && (
-                      <p className="text-xs text-cyan-500">{word.why_interesting}</p>
+                      <p className="text-xs text-chorus-accent">{word.why_interesting}</p>
                     )}
                   </div>
                 ))}
@@ -196,7 +196,7 @@ export function ConversationSummaryDisplay({ summary, conversationTitle, onClose
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div>
-                        <h4 className="font-semibold text-xl text-cyan-300">{agent.agent_name}</h4>
+                        <h4 className="font-semibold text-xl text-chorus-accent">{agent.agent_name}</h4>
                         <p className="text-sm text-slate-400">{agent.qualification}</p>
                       </div>
                       <div className="text-right">
@@ -222,7 +222,7 @@ export function ConversationSummaryDisplay({ summary, conversationTitle, onClose
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                       {agent.key_concepts && agent.key_concepts.length > 0 && (
                         <div>
-                          <p className="font-medium text-cyan-400 mb-1">Key Concepts:</p>
+                          <p className="font-medium text-chorus-accent mb-1">Key Concepts:</p>
                           <ul className="list-disc list-inside text-slate-300 space-y-1">
                             {agent.key_concepts.map((concept, i) => (
                               <li key={i}>{concept}</li>
@@ -233,7 +233,7 @@ export function ConversationSummaryDisplay({ summary, conversationTitle, onClose
 
                       {agent.technical_terms_introduced && agent.technical_terms_introduced.length > 0 && (
                         <div>
-                          <p className="font-medium text-cyan-400 mb-1">Technical Terms:</p>
+                          <p className="font-medium text-chorus-accent mb-1">Technical Terms:</p>
                           <ul className="list-disc list-inside text-slate-300 space-y-1">
                             {agent.technical_terms_introduced.map((term, i) => (
                               <li key={i}>{term}</li>
@@ -244,7 +244,7 @@ export function ConversationSummaryDisplay({ summary, conversationTitle, onClose
 
                       {agent.novel_insights && agent.novel_insights.length > 0 && (
                         <div className="md:col-span-2">
-                          <p className="font-medium text-cyan-400 mb-1">Novel Insights:</p>
+                          <p className="font-medium text-chorus-accent mb-1">Novel Insights:</p>
                           <ul className="list-disc list-inside text-slate-300 space-y-1">
                             {agent.novel_insights.map((insight, i) => (
                               <li key={i}>{insight}</li>
@@ -255,7 +255,7 @@ export function ConversationSummaryDisplay({ summary, conversationTitle, onClose
 
                       {agent.sources_cited && agent.sources_cited.length > 0 && (
                         <div className="md:col-span-2">
-                          <p className="font-medium text-cyan-400 mb-1">Sources Cited:</p>
+                          <p className="font-medium text-chorus-accent mb-1">Sources Cited:</p>
                           <ul className="list-disc list-inside text-slate-300 space-y-1">
                             {agent.sources_cited.map((source, i) => (
                               <li key={i}>{source}</li>
@@ -302,10 +302,10 @@ export function ConversationSummaryDisplay({ summary, conversationTitle, onClose
                 {summaryData.collaboration_dynamics.most_collaborative_moments &&
                   summaryData.collaboration_dynamics.most_collaborative_moments.length > 0 && (
                     <div>
-                      <p className="font-medium text-cyan-400 mb-2">Collaborative Highlights:</p>
+                      <p className="font-medium text-chorus-accent mb-2">Collaborative Highlights:</p>
                       <div className="space-y-2">
                         {summaryData.collaboration_dynamics.most_collaborative_moments.map((moment, idx) => (
-                          <div key={idx} className="p-3 bg-slate-800 rounded border-l-4 border-cyan-500">
+                          <div key={idx} className="p-3 bg-slate-800 rounded border-l-4 border-chorus-primary">
                             <p className="text-xs text-slate-500 mb-1">Turns {moment.turn_range}</p>
                             <p className="text-sm">{moment.description}</p>
                           </div>
@@ -352,7 +352,7 @@ export function ConversationSummaryDisplay({ summary, conversationTitle, onClose
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {summaryData.named_entities.people && summaryData.named_entities.people.length > 0 && (
                   <div>
-                    <p className="font-medium text-cyan-400 mb-2">People:</p>
+                    <p className="font-medium text-chorus-accent mb-2">People:</p>
                     <ul className="list-disc list-inside text-sm space-y-1">
                       {summaryData.named_entities.people.map((person, i) => (
                         <li key={i}>{person}</li>
@@ -364,7 +364,7 @@ export function ConversationSummaryDisplay({ summary, conversationTitle, onClose
                 {summaryData.named_entities.organizations &&
                   summaryData.named_entities.organizations.length > 0 && (
                     <div>
-                      <p className="font-medium text-cyan-400 mb-2">Organizations:</p>
+                      <p className="font-medium text-chorus-accent mb-2">Organizations:</p>
                       <ul className="list-disc list-inside text-sm space-y-1">
                         {summaryData.named_entities.organizations.map((org, i) => (
                           <li key={i}>{org}</li>
@@ -375,7 +375,7 @@ export function ConversationSummaryDisplay({ summary, conversationTitle, onClose
 
                 {summaryData.named_entities.locations && summaryData.named_entities.locations.length > 0 && (
                   <div>
-                    <p className="font-medium text-cyan-400 mb-2">Locations:</p>
+                    <p className="font-medium text-chorus-accent mb-2">Locations:</p>
                     <ul className="list-disc list-inside text-sm space-y-1">
                       {summaryData.named_entities.locations.map((loc, i) => (
                         <li key={i}>{loc}</li>
@@ -387,7 +387,7 @@ export function ConversationSummaryDisplay({ summary, conversationTitle, onClose
                 {summaryData.named_entities.publications &&
                   summaryData.named_entities.publications.length > 0 && (
                     <div>
-                      <p className="font-medium text-cyan-400 mb-2">Publications:</p>
+                      <p className="font-medium text-chorus-accent mb-2">Publications:</p>
                       <ul className="list-disc list-inside text-sm space-y-1">
                         {summaryData.named_entities.publications.map((pub, i) => (
                           <li key={i}>{pub}</li>
@@ -398,7 +398,7 @@ export function ConversationSummaryDisplay({ summary, conversationTitle, onClose
 
                 {summaryData.named_entities.urls && summaryData.named_entities.urls.length > 0 && (
                   <div className="md:col-span-2">
-                    <p className="font-medium text-cyan-400 mb-2">URLs Referenced:</p>
+                    <p className="font-medium text-chorus-accent mb-2">URLs Referenced:</p>
                     <ul className="space-y-1">
                       {summaryData.named_entities.urls.map((url, i) => (
                         <li key={i}>
@@ -428,7 +428,7 @@ export function ConversationSummaryDisplay({ summary, conversationTitle, onClose
               <ul className="space-y-3">
                 {summaryData.learning_outcomes.map((outcome, idx) => (
                   <li key={idx} className="flex items-start space-x-3">
-                    <span className="text-cyan-400 mt-1">•</span>
+                    <span className="text-chorus-accent mt-1">•</span>
                     <span>{outcome}</span>
                   </li>
                 ))}
@@ -439,7 +439,7 @@ export function ConversationSummaryDisplay({ summary, conversationTitle, onClose
           {/* Generation Metadata */}
           <div className="p-6 bg-slate-800 border border-slate-700 rounded-lg">
             <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
-              <FileText className="w-5 h-5 text-cyan-400" />
+              <FileText className="w-5 h-5 text-chorus-accent" />
               <span>Summary Generation Metadata</span>
             </h3>
 

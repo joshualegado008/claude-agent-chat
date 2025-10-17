@@ -83,7 +83,7 @@ export function ConversationControls({
           {onShowInject && isPaused && (
             <button
               onClick={onShowInject}
-              className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors"
+              className="flex items-center space-x-2 px-4 py-2 bg-chorus-secondary/20 hover:bg-chorus-secondary/20 text-white rounded-lg font-medium transition-colors"
             >
               <MessageSquarePlus className="w-4 h-4" />
               <span>Inject Content</span>

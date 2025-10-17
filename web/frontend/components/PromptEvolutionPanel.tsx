@@ -32,7 +32,7 @@ export function PromptEvolutionPanel({ metadata }: PromptEvolutionPanelProps) {
         className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-750 transition-colors"
       >
         <div className="flex items-center space-x-2">
-          <Sparkles className="w-4 h-4 text-purple-400" />
+          <Sparkles className="w-4 h-4 text-chorus-accent" />
           <span className="font-medium text-slate-200">
             Prompt Evolution
           </span>
@@ -53,7 +53,7 @@ export function PromptEvolutionPanel({ metadata }: PromptEvolutionPanelProps) {
           {/* Step 1: Original User Input */}
           <div className="space-y-2">
             <div className="flex items-center space-x-2">
-              <User className="w-4 h-4 text-cyan-400" />
+              <User className="w-4 h-4 text-chorus-accent" />
               <h4 className="font-medium text-sm text-slate-300">
                 1. Your Original Request
               </h4>
@@ -111,7 +111,7 @@ export function PromptEvolutionPanel({ metadata }: PromptEvolutionPanelProps) {
           {(metadata.refined_topic || metadata.expertise_requirements) && (
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
-                <Brain className="w-4 h-4 text-purple-400" />
+                <Brain className="w-4 h-4 text-chorus-accent" />
                 <h4 className="font-medium text-sm text-slate-300">
                   3. Agent Selection Analysis
                 </h4>
@@ -121,8 +121,8 @@ export function PromptEvolutionPanel({ metadata }: PromptEvolutionPanelProps) {
               </div>
               <div className="pl-6 space-y-3">
                 {metadata.refined_topic && (
-                  <div className="p-3 bg-purple-900/10 rounded border border-purple-700/30">
-                    <p className="text-xs text-purple-300 font-medium mb-1">
+                  <div className="p-3 bg-chorus-secondary/20 rounded border border-chorus-secondary/30">
+                    <p className="text-xs text-chorus-accent font-medium mb-1">
                       Refined Topic:
                     </p>
                     <p className="text-slate-200 text-sm">
@@ -131,14 +131,14 @@ export function PromptEvolutionPanel({ metadata }: PromptEvolutionPanelProps) {
                   </div>
                 )}
                 {metadata.expertise_requirements && metadata.expertise_requirements.length > 0 && (
-                  <div className="p-3 bg-purple-900/10 rounded border border-purple-700/30">
-                    <p className="text-xs text-purple-300 font-medium mb-2">
+                  <div className="p-3 bg-chorus-secondary/20 rounded border border-chorus-secondary/30">
+                    <p className="text-xs text-chorus-accent font-medium mb-2">
                       Expertise Requirements:
                     </p>
                     <ul className="space-y-1">
                       {metadata.expertise_requirements.map((expertise, idx) => (
                         <li key={idx} className="text-slate-200 text-sm flex items-start">
-                          <span className="text-purple-400 mr-2">•</span>
+                          <span className="text-chorus-accent mr-2">•</span>
                           <span>{expertise}</span>
                         </li>
                       ))}

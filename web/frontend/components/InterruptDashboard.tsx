@@ -78,7 +78,7 @@ export function InterruptDashboard({
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="px-8 py-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-800">
+        <div className="px-8 py-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-chorus-accent to-chorus-primary dark:from-gray-700 dark:to-gray-800">
           <div className="flex justify-between items-start">
             <div>
               <h2 className="text-2xl font-bold mb-1">📊 Conversation Insights</h2>
@@ -115,19 +115,19 @@ export function InterruptDashboard({
             {/* Vibe & Sentiment */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Current Vibe */}
-              <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl p-6 border-2 border-purple-200 dark:border-purple-700">
+              <div className="bg-gradient-to-br from-chorus-accent to-chorus-primary dark:from-chorus-secondary/20 dark:to-chorus-primary/20 rounded-xl p-6 border-2 border-chorus-secondary dark:border-chorus-secondary">
                 <div className="flex items-center space-x-2 mb-3">
-                  <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                  <Sparkles className="w-5 h-5 text-chorus-accent dark:text-chorus-accent" />
                   <h3 className="font-bold text-lg">Current Vibe</h3>
                 </div>
                 <div className="text-4xl mb-2">{getSentimentEmoji(vibe)}</div>
-                <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">
+                <p className="text-2xl font-bold text-chorus-accent dark:text-chorus-accent">
                   {vibe}
                 </p>
               </div>
 
               {/* Sentiment */}
-              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-xl p-6 border-2 border-blue-200 dark:border-blue-700">
+              <div className="bg-gradient-to-br from-chorus-accent to-orange-100 dark:from-chorus-secondary/20 dark:to-orange-900/20 rounded-xl p-6 border-2 border-chorus-primary dark:border-chorus-secondary">
                 <div className="flex items-center space-x-2 mb-3">
                   <Heart className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                   <h3 className="font-bold text-lg">Sentiment</h3>
@@ -230,7 +230,7 @@ export function InterruptDashboard({
 
             {/* Key Points */}
             {keyPoints.length > 0 && (
-              <div className="bg-gradient-to-br from-teal-50 to-cyan-50 dark:from-teal-900/20 dark:to-cyan-900/20 rounded-xl p-6 border-2 border-teal-200 dark:border-teal-700">
+              <div className="bg-gradient-to-br from-chorus-accent to-orange-100 dark:from-chorus-secondary/20 dark:to-orange-900/20 rounded-xl p-6 border-2 border-chorus-primary dark:border-chorus-secondary">
                 <div className="flex items-center space-x-2 mb-4">
                   <TrendingUp className="w-5 h-5 text-teal-600 dark:text-teal-400" />
                   <h3 className="font-bold text-lg">Key Points</h3>

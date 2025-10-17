@@ -120,7 +120,7 @@ export function AgentSelector({
           </div>
           <div>
             <p className="text-slate-400">Cache Savings</p>
-            <p className="font-bold text-purple-400">${metadata.cache_savings.toFixed(4)}</p>
+            <p className="font-bold text-chorus-accent">${metadata.cache_savings.toFixed(4)}</p>
           </div>
         </div>
       </div>

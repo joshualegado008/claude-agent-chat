@@ -125,4 +125,10 @@ export const api = {
     });
     return handleResponse(response);
   },
+
+  // Conversation Summary
+  async getSummary(conversationId: string) {
+    const response = await fetch(`${API_URL}/api/conversations/${conversationId}/summary`);
+    return handleResponse(response);
+  },
 };

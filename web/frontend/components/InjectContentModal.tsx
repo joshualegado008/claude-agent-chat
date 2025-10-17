@@ -90,7 +90,7 @@ export function InjectContentModal({
             <button
               onClick={handleSubmit}
               disabled={isSubmitting || !content.trim()}
-              className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-gradient-to-r from-chorus-secondary to-chorus-primary hover:from-chorus-secondary/90 hover:to-chorus-primary/90 text-white rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? (
                 <>
